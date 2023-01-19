@@ -32,8 +32,7 @@ aws s3 cp <TODO_dir1>/covost-2/covost_v2.en_de.dev.tsv ./covost_tsv
 aws s3 cp <TODO_dir1>/covost-2/covost_v2.en_de.test.tsv ./covost_tsv
 aws s3 cp <TODO_dir2>/model6-phoneticwords-to-text/checkpoint_best.pt trained_models/model6-en-phoneticwords-en-txt
 
-aws s3 cp <TODO_dir1>/covost-2/MFA_en.tz .
-tar -xvf MFA_en.tz  
+tar -xvf data/training/covost2_mfa.tz  
 python3 extract_all_jsons.py
 ```
 Now, all the json files should be in `covost_mfa/data/`.

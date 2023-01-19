@@ -14,7 +14,7 @@
 # limitations under the License.
 
 import os
-rootdir = 'TODO'
+rootdir = 'data/training'
 
 for subdir, dirs, files in os.walk(rootdir):
     for file in files:
