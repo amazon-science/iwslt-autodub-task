@@ -4,4 +4,4 @@ pydub==0.25.1
 PyYAML==6.0
 scipy==1.6.2
 subword_nmt==0.3.7
-torch==1.9.0
+torch==1.13.1
