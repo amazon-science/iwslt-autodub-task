@@ -20,8 +20,8 @@ limitations under the License.
 # Setting up the environment 
 
 ```
-conda create --name joint-mt-overlap --file requirements.txt
-conda activate joint-mt-overlap
+conda create --name iwslt-autodub --file requirements.txt
+conda activate iwslt-autodub
 
 cd <TODO_repo_dir>
 git clone https://github.com/rsennrich/subword-nmt.git subword-nmt
@@ -32,7 +32,7 @@ aws s3 cp <TODO_dir1>/covost-2/covost_v2.en_de.dev.tsv ./covost_tsv
 aws s3 cp <TODO_dir1>/covost-2/covost_v2.en_de.test.tsv ./covost_tsv
 aws s3 cp <TODO_dir2>/model6-phoneticwords-to-text/checkpoint_best.pt trained_models/model6-en-phoneticwords-en-txt
 
-tar -xvf data/training/covost2_mfa.tz  
+pushd data/training/ ; tar -xvf covost2_mfa.tz ; popd
 python3 extract_all_jsons.py
 ```
 Now, all the json files should be in `covost_mfa/data/`.
