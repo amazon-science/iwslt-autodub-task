@@ -1,5 +1,5 @@
 matplotlib==3.3.4
-numpy==1.20.1
+numpy==1.22.0
 pydub==0.25.1
 PyYAML==6.0
 scipy==1.6.2
