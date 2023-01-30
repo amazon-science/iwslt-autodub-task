@@ -1,3 +1,4 @@
 data/covost2_mfa.tz filter=lfs diff=lfs merge=lfs -text
 data/test/subset2/subset2.tgz filter=lfs diff=lfs merge=lfs -text
 data/test/subset1/subset1.tgz filter=lfs diff=lfs merge=lfs -text
+models/phoneme_to_grapheme/checkpoint_best.pt filter=lfs diff=lfs merge=lfs -text
