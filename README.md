@@ -20,20 +20,29 @@ limitations under the License.
 # Setting up the environment 
 
 ```
-conda create --name iwslt-autodub --file requirements.txt
+sudo apt install git-lfs awscli
+git lfs install
+git clone https://github.com/amazon-science/iwslt-autodub-task.git
+cd iwslt-autodub-task
+
+# Create a conda environment
+conda env create --file environment.yml
 conda activate iwslt-autodub
 
 cd <TODO_repo_dir>
+# TODO: We already pip install subword-nmt and should not need this
 git clone https://github.com/rsennrich/subword-nmt.git subword-nmt
 git clone https://github.com/moses-smt/mosesdecoder.git mosesdecoder
 
+# Download CoVoST2 TSV files
 aws s3 cp <TODO_dir1>/covost-2/covost_v2.en_de.train.tsv ./covost_tsv
 aws s3 cp <TODO_dir1>/covost-2/covost_v2.en_de.dev.tsv ./covost_tsv
 aws s3 cp <TODO_dir1>/covost-2/covost_v2.en_de.test.tsv ./covost_tsv
-aws s3 cp <TODO_dir2>/model6-phoneticwords-to-text/checkpoint_best.pt trained_models/model6-en-phoneticwords-en-txt
 
-pushd data/training/ ; tar -xvf covost2_mfa.tz ; popd
-python3 extract_all_jsons.py
+# Extract data
+mkdir covost_mfa covost_tsv
+tar -xvf data/training/covost2_mfa.tz -C covost_mfa
+mv covost_mfa/covost2_mfa covost_mfa/data
 ```
 Now, all the json files should be in `covost_mfa/data/`.
 

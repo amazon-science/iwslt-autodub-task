@@ -58,8 +58,7 @@ def build_datasets(data_path, duration_freq, num_bins=100, upsampling=None, sd=N
         if os.path.isfile(os.path.join(data_path, name + ".json")):
             data = json.load(open(os.path.join(data_path, name + ".json")))
         else:
-            print(file)
-            print("ignored")
+            print(file, "ignored")
             continue
 
         if args[3] == 'en-phones-durations':
@@ -217,9 +216,9 @@ if __name__ == "__main__":
 
     covost_dir = './covost_tsv'
     train_tsv, dev_tsv, test_tsv = load_tsv(covost_dir)
-    codes_de = codecs.open("./de_codes_10k", encoding='utf-8')
+    codes_de = codecs.open("data/training/de_codes_10k", encoding='utf-8')
     bpe_de = BPE(codes_de)
-    codes_en = codecs.open("./en_codes_10k_mfa", encoding='utf-8')
+    codes_en = codecs.open("data/training/en_codes_10k_mfa", encoding='utf-8')
     bpe_en = BPE(codes_en)
 
     durations_path = './durations_freq_all.pkl'

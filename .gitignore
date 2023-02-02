@@ -1,0 +1,5 @@
+covost_mfa/
+covost_tsv/
+__pycache__/
+durations_freq_all.pkl
+processed_datasets/
