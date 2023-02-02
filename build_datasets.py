@@ -258,6 +258,9 @@ if __name__ == "__main__":
 
     output_path = os.path.join(args.processed_output_dir, args.de_output_type)
     if args.num_bins == 0:
+        logging.warning("Binning of source segment durations is turned off. "
+                        "This is not expected for any of the default models. "
+                        "Run with --num-bins > 0 if this was not intentional.")
         output_path += '-unbinned'
     if args.de_output_type == 'de-text-noisy-durations':
         if args.noise_std == 0.0:
