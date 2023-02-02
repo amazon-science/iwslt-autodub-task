@@ -35,17 +35,24 @@ class FactorFileManager:
     """
     Context Manager to neatly manage all the factor output file handles
     """
-    def __init__(self, prefix):
+    def __init__(self, prefix, allow_overwrite=False):
         self.handles = dict()
         self.prefix = prefix
+        self.overwrite = allow_overwrite
 
     def __enter__(self):
         for f in FACTOR_TYPES:
             output_path = self.prefix + f.lower()
+            if os.path.exists(output_path) and not self.overwrite:
+                raise FileExistsError(f"Factor file {output_path} already exists. Rerun with --allow-overwrite if you're sure you want to overwrite.")
             self.handles[f] = open(output_path, 'w')
             logging.info(f"Writing {f} factors to {output_path}")
-        self.handles['text'] = open(self.prefix + 'text', 'w')
-        logging.info(f"Writing text to {self.prefix + 'text'}")
+
+        text_output_path = self.prefix + 'text'
+        if os.path.exists(text_output_path) and not self.overwrite:
+            raise FileExistsError(f"Factor file {text_output_path} already exists. Rerun with --allow-overwrite if you're sure you want to overwrite.")
+        self.handles['text'] = open(text_output_path, 'w')
+        logging.info(f"Writing text to {text_output_path}")
         return self.handles
 
     def __exit__(self, exc_type, exc_value, exc_tb):
@@ -122,7 +129,7 @@ def process_files(args: argparse.Namespace):
         with open(os.path.join(args.input_dir, f"{split}.{SRC_LANG}")) as src_in, \
              open(os.path.join(args.input_dir, f"{split}.{TGT_LANG}")) as tgt_in, \
              open(os.path.join(args.input_dir, f"{split}.{SEGMENTS_SUFFIX}")) as src_segments, \
-             FactorFileManager(os.path.join(args.output_dir, f"{split}.{TGT_LANG}.")) as factor_handles:
+             FactorFileManager(os.path.join(args.output_dir, f"{split}.{TGT_LANG}."), args.allow_overwrite) as factor_handles:
             for tgt_line in tgt_in:
                 tgt_line = tgt_line.strip().split()
                 tgt_pauses = tgt_line.count(PAUSE_TOKEN)
@@ -162,6 +169,8 @@ if __name__ == '__main__':
                         help="Indicate that there are no duration bins in the source. Just skips a check, doesn't affect output.")
     parser.add_argument("--eow-as-factor", action='store_true',
                         help="Remove <eow> from source and use a factor to denote EOW or not EOW")
+    parser.add_argument("--allow-overwrite", action='store_true',
+                        help="Allow overwriting if the factor files already exist.")
 
     args = parser.parse_args()
 
