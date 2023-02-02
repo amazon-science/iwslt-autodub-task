@@ -33,18 +33,35 @@ cd <TODO_repo_dir>
 # TODO: We already pip install subword-nmt and should not need this
 git clone https://github.com/rsennrich/subword-nmt.git subword-nmt
 git clone https://github.com/moses-smt/mosesdecoder.git mosesdecoder
+```
 
-# Download CoVoST2 TSV files
-aws s3 cp <TODO_dir1>/covost-2/covost_v2.en_de.train.tsv ./covost_tsv
-aws s3 cp <TODO_dir1>/covost-2/covost_v2.en_de.dev.tsv ./covost_tsv
-aws s3 cp <TODO_dir1>/covost-2/covost_v2.en_de.test.tsv ./covost_tsv
+# Download and extract data
 
-# Extract data
-mkdir covost_mfa covost_tsv
+Download the CoVoST2 en-de dataset following these steps, or directly follow instructions at https://github.com/facebookresearch/covost#covost-2.
+
+* First, download [Common Voice audio clips and transcripts](https://commonvoice.mozilla.org/en/datasets) (English, version 4). Then, extract `validated.tsv` from it.
+```bash
+mkdir covost_tsv
+tar -xvf en.tar validated.tsv
+mv validated.tsv covost_tsv/
+```
+* Then extract the required TSV files:
+```bash
+# Download and split CoVoST2 TSV files
+pushd covost_tsv
+wget https://dl.fbaipublicfiles.com/covost/covost_v2.en_de.tsv.tar.gz https://raw.githubusercontent.com/facebookresearch/covost/main/get_covost_splits.py
+tar -xzf covost_v2.en_de.tsv.tar.gz
+python3 get_covost_splits -v 2 --src-lang en --tgt-lang de --root . --cv-tsv validated.tsv
+popd
+```
+You should now have `covost_v2.en_de.dev.tsv`, `covost_v2.en_de.test.tsv`, and `covost_v2.en_de.train.tsv` in the `covost_tsv` directory.
+* Then extract MFA files.
+```bash
+mkdir covost_mfa
 tar -xvf data/training/covost2_mfa.tz -C covost_mfa
 mv covost_mfa/covost2_mfa covost_mfa/data
 ```
-Now, all the json files should be in `covost_mfa/data/`.
+Now, all the json files should be in `covost_mfa/data`.
 
 # Compute the distribution of speech durations
 ```bash
