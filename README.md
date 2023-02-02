@@ -19,7 +19,7 @@ limitations under the License.
 
 # Setting up the environment 
 
-```
+```bash
 sudo apt install git-lfs awscli
 git lfs install
 git clone https://github.com/amazon-science/iwslt-autodub-task.git
@@ -47,7 +47,7 @@ mv covost_mfa/covost2_mfa covost_mfa/data
 Now, all the json files should be in `covost_mfa/data/`.
 
 # Compute the distribution of speech durations
-``` 
+```bash
 python3 get_durations_frequencies.py ./covost_mfa/data 
 ```
 
@@ -56,14 +56,59 @@ This computes how often each speech duration is observed in our training data, s
 # Build dataset
 
 Depending on which model we want to run, we can create the corresponding dataset: 
-
+```bash
+python3 build_datasets.py --en en-text-without-durations --de de-text-without-durations # text -- text
+python3 build_datasets.py --en en-phones-without-durations --de de-text-without-durations # text -- phones
+python3 build_datasets.py --en en-phones-durations --de de-text-without-durations # text -- phones and durations
+python3 build_datasets.py --en en-phones-durations --de de-text-clean-durations --write-segments-to-file # text and binned segments -- phones and durations
+python3 build_datasets.py --en en-phones-durations --de de-text-noisy-durations --noise-std 0.5 --upsampling 10 --write-segments-to-file # text and noised binned segments -- phones and durations
+python3 build_datasets.py --en en-phones-durations --de de-text-dummy-durations --write-segments-to-file # text and dummy segment tags -- phones and durations
 ```
-python3 build_datasets.py ./covost_mfa/data processed_datasets en-text-without-durations de-text-without-durations # model 1b
-python3 build_datasets.py ./covost_mfa/data processed_datasets en-phones-without-durations de-text-without-durations # model 2b
-python3 build_datasets.py ./covost_mfa/data processed_datasets en-phones-durations de-text-without-durations  # model 4a 
-python3 build_datasets.py ./covost_mfa/data processed_datasets en-phones-durations de-text-clean-durations # model 7
-python3 build_datasets.py ./covost_mfa/data processed_datasets en-phones-durations de-text-noisy-durations 0.5 # model 7f 
-python3 build_datasets.py ./covost_mfa/data processed_datasets en-phones-durations de-text-dummy-durations # model 8 
+
+Full usage options for `build_datasets.py`:
+```bash
+$ python build_datasets.py -h
+usage: build_datasets.py [-h] --de-output-type {de-text-clean-durations,de-text-noisy-durations,de-text-dummy-durations,de-text-without-durations}
+                              --en-output-type {en-phones-without-durations,en-phones-durations,en-text-without-durations}
+                              [-i INPUT_MFA_DIR] [-o PROCESSED_OUTPUT_DIR] [--covost-dir COVOST_DIR] [--durations-path DURATIONS_PATH] [--bpe-de BPE_DE] [--bpe-en BPE_EN] [--force-redo] [--write-segments-to-file] [--upsampling UPSAMPLING] [--noise-std NOISE_STD] [--num-bins NUM_BINS]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --de-output-type {de-text-clean-durations,de-text-noisy-durations,de-text-dummy-durations,de-text-without-durations}, --de {de-text-clean-durations,de-text-noisy-durations,  de-text-dummy-durations,de-text-without-durations}
+  --en-output-type {en-phones-without-durations,en-phones-durations,en-text-without-durations}, --en {en-phones-without-durations,en-phones-durations,en-text-without-durations}
+  -i INPUT_MFA_DIR, --input-mfa-dir INPUT_MFA_DIR
+                        Directory containing MFA JSON files (default: covost_mfa/data)
+  -o PROCESSED_OUTPUT_DIR, --processed-output-dir PROCESSED_OUTPUT_DIR
+                        Parent directory for output data (default: processed_datasets)
+  --covost-dir COVOST_DIR
+                        Directory containing covost TSV files (default: ./covost_tsv)
+  --durations-path DURATIONS_PATH
+                        Pickle file containing dictionary of durations and corresponding frequencies (default: durations_freq_all.pkl)
+  --bpe-de BPE_DE       BPE codes for de side (default: data/training/de_codes_10k)
+  --bpe-en BPE_EN       BPE codes for en side (default: data/training/en_codes_10k_mfa)
+  --force-redo, -f      Redo datasets even if the output directory already exists (default: False)
+  --write-segments-to-file
+                        Write unnoise and unbinned segment durations to a separate file (default: False)
+  --upsampling UPSAMPLING
+                        Upsample examples by this factor (for noisy outputs) (default: 1)
+  --noise-std NOISE_STD
+                        Standard deviation for noise added to durations (default: 0.0)
+  --num-bins NUM_BINS   Number of bins. 0 means no binning. (default: 100)
+```
+
+For use with factored baselines, make sure you use the `--write-segments-to-file` option, since that will generate some files required for generating the factored data.
+
+# Prepare target factor files
+For the factored baselines, you need to prepare the datasets in the factored formats and generate the auxiliary factors.
+```bash
+# For example, for text and binned segments -- phones and durations
+python3 separate_factors.py -i processed_datasets/de-text-clean-durations-en-phones-durations -o multi_factored
+```
+This will generate target factor input files in `processed_datasets/de-text-clean-durations-en-phones-durations/multi_factored`.
+
+To generate only durations as a single target factor without all the calculated auxiliary factors:
+```bash
+python3 separate_factors.py -i processed_datasets/de-text-clean-durations-en-phones-durations -o factored --no-shift
 ```
 
 # Example 1: Model 7 w/o noise (input: text and speech durations; output: phones and phone durations)
