@@ -33,6 +33,17 @@ cd <TODO_repo_dir>
 # TODO: We already pip install subword-nmt and should not need this
 git clone https://github.com/rsennrich/subword-nmt.git subword-nmt
 git clone https://github.com/moses-smt/mosesdecoder.git mosesdecoder
+
+# Download Prism for evaluation
+git clone https://github.com/thompsonb/prism third_party/prism
+cd third_party/prism
+conda create -n prism python=3.7 -y
+conda activate prism
+pip install -r requirements.txt
+conda deactivate prism
+wget http://data.statmt.org/prism/m39v1.tar
+tar xf m39v1.tar
+rm m39v1.tar
 ```
 
 # Download and extract data
@@ -63,14 +74,14 @@ mv covost_mfa/covost2_mfa covost_mfa/data
 ```
 Now, all the json files should be in `covost_mfa/data`.
 
-# Compute the distribution of speech durations
+## Compute the distribution of speech durations
 ```bash
 python3 get_durations_frequencies.py ./covost_mfa/data 
 ```
 
 This computes how often each speech duration is observed in our training data, so that we do the binning correctly. 
 
-# Build dataset
+## Build dataset
 
 Depending on which model we want to run, we can create the corresponding dataset: 
 ```bash
@@ -115,24 +126,163 @@ optional arguments:
 
 For use with factored baselines, make sure you use the `--write-segments-to-file` option, since that will generate some files required for generating the factored data.
 
-# Prepare target factor files
+## Prepare target factor files
 For the factored baselines, you need to prepare the datasets in the factored formats and generate the auxiliary factors.
 ```bash
 # For example, for text and binned segments -- phones and durations
 python3 separate_factors.py -i processed_datasets/de-text-clean-durations-en-phones-durations -o multi_factored
 ```
 This will generate target factor input files in `processed_datasets/de-text-clean-durations-en-phones-durations/multi_factored`.
+* `*.en.text` contain the original text, with `<shift>` tokens to account for internal factor shifts so that the factors are conditioned on the main output.
+* `*.en.duration` contain the durations corresponding to each phoneme in `*.en.text`.
+* `*.en.total_duration_remaining`, `*.en.segment_duration_remaining`, and `*.en.pauses_remaining` contain the auxiliary factors that are calculated from the durations.
+
+This is what they should look like:
+```bash
+$ head -2 processed_datasets/de-text-clean-durations-en-phones-durations/multi_factored/test.en.*
+==> processed_datasets/de-text-clean-durations-en-phones-durations/multi_factored/test.en.duration <==
+0 12 3 8 12 4 5 5 9 8 14 0 5 7 0 7 17 5 5 0 10 10 0 3 12 13 3 0 13 13 0 2 3 0 3 5 5 13 8 6 10 0 5 8 12 6 8 7 0 5 8 7 0 3 12 8 16 12 14 0 24
+0 11 0 17 9 15 0 1 4 5 0 9 3 5 0 20 6 7 0 8 7 0 7 5 4 16 0 3 11 13 4 6 26 24 0
+
+==> processed_datasets/de-text-clean-durations-en-phones-durations/multi_factored/test.en.pauses_remaining <==
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+
+==> processed_datasets/de-text-clean-durations-en-phones-durations/multi_factored/test.en.segment_duration_remaining <==
+413 401 398 390 378 374 369 364 355 347 333 333 328 321 321 314 297 292 287 287 277 267 267 264 252 239 236 236 223 210 210 208 205 205 202 197 192 179 171 165 155 155 150 142 130 124 116 109 109 104 96 89 89 86 74 66 50 38 24 24 0
+246 235 235 218 209 194 194 193 189 184 184 175 172 167 167 147 141 134 134 126 119 119 112 107 103 87 87 84 73 60 56 50 24 0 0
+
+==> processed_datasets/de-text-clean-durations-en-phones-durations/multi_factored/test.en.text <==
+<shift> F AO1 R CH AH0 N AH0 T L IY0 <eow> DH AH1 <eow> R EY1 T S <eow> AH1 V <eow> D EH1 TH S <eow> IH1 N <eow> DH IY0 <eow> Y UW0 N AY1 T IH0 D <eow> K IH1 NG D AH0 M <eow> HH AE1 V <eow> R IH0 D UW1 S T <eow> sp
+<shift> AY1 <eow> D IH1 D <eow> HH AE1 V <eow> sp T AH0 <eow> K AH1 T <eow> sp AH0 <eow> sp F Y UW1 <eow> sp K AO1 R N ER0 Z <eow>
+
+==> processed_datasets/de-text-clean-durations-en-phones-durations/multi_factored/test.en.total_duration_remaining <==
+413 401 398 390 378 374 369 364 355 347 333 333 328 321 321 314 297 292 287 287 277 267 267 264 252 239 236 236 223 210 210 208 205 205 202 197 192 179 171 165 155 155 150 142 130 124 116 109 109 104 96 89 89 86 74 66 50 38 24 24 0
+246 235 235 218 209 194 194 193 189 184 184 175 172 167 167 147 141 134 134 126 119 119 112 107 103 87 87 84 73 60 56 50 24 0 0
+```
 
 To generate only durations as a single target factor without all the calculated auxiliary factors:
 ```bash
 python3 separate_factors.py -i processed_datasets/de-text-clean-durations-en-phones-durations -o factored --no-shift
 ```
 
+# Decode test set and evaluate using provided Sockeye baseline models
+
+NOTE: Test set here does not refer to the specific subsets in `data/test/`; rather it refers to the full test sets generated from CoVoST2.
+
+Before you proceed, in `sockeye_scripts/config`, set ROOT as the path of this repo. For example `ROOT=~/iwslt-autodub-task`
+
+There are 3 model checkpoints provided in `models/sockeye/trained_baselines`:
+1. **baseline_interleaved**: Vanilla seq2seq model trained to generate an alternating sequence of phonemes and durations.
+2. **baseline_factored_clean**: Using a target factor to predict durations and additional target factors to help the model keep track.
+3. **baseline_factored_noised1.0**: Same as the previous one, but where the training segment durations had Gaussian noise (std. dev. 1.0) added.
+
+Before decoding, please make sure you have run the data and factor preparation steps, so that you have at least `processed_datasets/de-text-clean-durations-en-phones-durations` prepared with the `multi_factored` subdirectory, `processed_datasets/de-text-without-durations-en-text-without-durations` for the translation reference text files.
+
+## Decoding using **baseline_interleaved**
+For **baseline_interleaved**, the input format is BPEd German text followed by the binned segment durations, as in the `{train,valid,test}.de` files in the prepared datasets. For example:
+```bash
+$ head -2 ~/iwslt-autodub-task/processed_datasets/de-text-clean-durations-en-phones-durations/test.de
+Glück@@ licherweise sind die Ster@@ ber@@ aten im Vereinigten Königreich ges@@ unken <||> <bin87>
+Ich musste einige Ab@@ str@@ ich@@ e mach@@ en@@ . <||> <bin44>
+```
+To decode using **baseline_interleaved**, run
+```bash
+mkdir -p models/sockeye/trained_baselines/baseline_interleaved/eval
+# Reduce --batch-size if this doesn't fit on your GPU, or prepend CUDA_VISIBLE_DEVICES= to decode on CPU
+sockeye-translate \
+    -i processed_datasets/de-text-clean-durations-en-phones-durations/test.de \
+    -o models/sockeye/trained_baselines/baseline_interleaved/eval/test.en.output \
+    --models models/sockeye/trained_baselines/baseline_interleaved/model \
+    --checkpoints 29 \
+    -b 5 \
+    --batch-size 32 \
+    --chunk-size 20000 \
+    --output-type translation \
+    --max-output-length 768 \
+    --quiet
+```
+
+## Evaluate **baseline_interleaved** output
+```bash
+./sockeye_scripts/evaluation/evaluate-interleaved.sh processed_datasets/de-text-clean-durations-en-phones-durations/test.en models/sockeye/trained_baselines/baseline_interleaved/eval/test.en.output
+```
+
+This will print:
+* Translation quality metrics
+    - BLEU
+    - Prism
+    - COMET
+* Speech overlap metrics
+
+## Decoding using **baseline_factored_\***
+For **baseline_factored_clean** and **baseline_factored_noised1.0**, the input format is a specific JSON format that can be prepared using:
+```bash
+$ python3 sockeye_scripts/decoding/create-json-inputs.py -d processed_datasets/de-text-clean-durations-en-phones-durations --subset test --output-segment-durations -o processed_datasets/de-text-clean-durations-en-phones-durations/test.de.json
+
+# Check JSON file looks like this
+$ head -2 ~/iwslt-autodub-task/processed_datasets/de-text-clean-durations-en-phones-durations/test.de.json | jq
+{
+  "text": "Glück@@ licherweise sind die Ster@@ ber@@ aten im Vereinigten Königreich ges@@ unken <||> <bin87>",
+  "target_prefix": "<shift>",
+  "target_prefix_factors": [
+    "0",
+    "413",
+    "413",
+    "0"
+  ],
+  "target_segment_durations": [
+    413
+  ],
+  "use_target_prefix_all_chunks": false
+}
+{
+  "text": "Ich musste einige Ab@@ str@@ ich@@ e mach@@ en@@ . <||> <bin44>",
+  "target_prefix": "<shift>",
+  "target_prefix_factors": [
+    "0",
+    "246",
+    "246",
+    "0"
+  ],
+  "target_segment_durations": [
+    246
+  ],
+  "use_target_prefix_all_chunks": false
+}
+```
+
+To decode using **baseline_factored_clean** (for **baseline_factored_noised1.0**, just replace `clean` with `noised1.0` and use `--checkpoint 73` in the command), run
+```bash
+mkdir -p models/sockeye/trained_baselines/baseline_factored_clean/eval
+sockeye-translate \
+    -i processed_datasets/de-text-clean-durations-en-phones-durations/test.de.json \
+    -o models/sockeye/trained_baselines/baseline_factored_clean/eval/test.en.output \
+    --models models/sockeye/trained_baselines/baseline_factored_clean/model \
+    --checkpoints 70 \
+    -b 5 \
+    --batch-size 32 \
+    --chunk-size 20000 \
+    --output-type translation_with_factors \
+    --max-output-length 768 \
+    --force-factors-stepwise frames total_remaining segment_remaining pauses_remaining \
+    --json-input \
+    --quiet
+```
+
+## Evaluate **baseline_factored_\*** output
+```bash
+# For baseline_factored_clean
+./sockeye_scripts/evaluation/evaluate-factored.sh processed_datasets/de-text-clean-durations-en-phones-durations/test.en models/sockeye/trained_baselines/baseline_factored_clean/eval/test.en.output
+# For baseline_factored_noised1.0
+./sockeye_scripts/evaluation/evaluate-factored.sh processed_datasets/de-text-clean-durations-en-phones-durations/test.en models/sockeye/trained_baselines/baseline_factored_noised1.0/eval/test.en.output
+```
+
 # Example 1: Model 7 w/o noise (input: text and speech durations; output: phones and phone durations)
 
 ### Train 
 
-```
+```bash
 cd processed_datasets/de-text-clean-durations-en-phones-durations
 fairseq-preprocess --source-lang de --target-lang en --trainpref train --validpref valid  --testpref test --destdir ../../data-bin/model7 --workers 20
 
