@@ -22,20 +22,14 @@ limitations under the License.
 ```bash
 sudo apt install git-lfs awscli
 git lfs install
-git clone https://github.com/amazon-science/iwslt-autodub-task.git
+git clone https://github.com/amazon-science/iwslt-autodub-task.git --recursive
 cd iwslt-autodub-task
 
 # Create a conda environment
 conda env create --file environment.yml
 conda activate iwslt-autodub
 
-cd <TODO_repo_dir>
-# TODO: We already pip install subword-nmt and should not need this
-git clone https://github.com/rsennrich/subword-nmt.git subword-nmt
-git clone https://github.com/moses-smt/mosesdecoder.git mosesdecoder
-
-# Download Prism for evaluation
-git clone https://github.com/thompsonb/prism third_party/prism
+# Download Prism model for evaluation
 cd third_party/prism
 conda create -n prism python=3.7 -y
 conda activate prism
