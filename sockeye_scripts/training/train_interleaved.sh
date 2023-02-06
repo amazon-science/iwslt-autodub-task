@@ -1,6 +1,6 @@
 #!/bin/bash
 set -Eeuo pipefail
-source ../config
+source `dirname $0`/../config
 
 SRC=de
 TGT=en

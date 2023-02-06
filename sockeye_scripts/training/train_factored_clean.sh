@@ -1,6 +1,6 @@
 #!/bin/bash
 set -Eeuo pipefail
-source ../config
+source `dirname $0`/../config
 
 SRC=de
 TGT=en
@@ -24,10 +24,10 @@ if [[ ! -f ${MODEL_DIR}/prepared_data/shard.00000 ]]; then
                          ${DATA_DIR}/multi_factored/train.${TGT}.total_duration_remaining \
                          ${DATA_DIR}/multi_factored/train.${TGT}.segment_duration_remaining \
                          ${DATA_DIR}/multi_factored/train.${TGT}.pauses_remaining \
-        --target-factor-vocabs ${SCRIPT_DIR}/misc/seq_vocab.json \
-                               ${SCRIPT_DIR}/misc/seq_vocab.json \
-                               ${SCRIPT_DIR}/misc/seq_vocab.json \
-                               ${SCRIPT_DIR}/misc/seq_vocab.json \
+        --target-factor-vocabs `dirname $0`/seq_vocab.json \
+                               `dirname $0`/seq_vocab.json \
+                               `dirname $0`/seq_vocab.json \
+                               `dirname $0`/seq_vocab.json \
         --max-seq-len "150:200" \
         --output ${MODEL_DIR}/prepared_data
 else
@@ -35,7 +35,11 @@ else
 fi
 
 # Set the number of GPUs for distributed training
-N_GPU=8
+# Adjust BATCH_SIZE and UPDATE_INTERVAL according to your GPU situation.
+# For example, if you change N_GPU to 2, you should set update-interval to 8 to have the same effective batch size
+N_GPU=1
+BATCH_SIZE=4096
+UPDATE_INTERVAL=16
 
 # Run training
 torchrun --no_python --nproc_per_node ${N_GPU} \
@@ -62,9 +66,9 @@ sockeye-train \
     --label-smoothing-impl torch \
     --optimizer-betas 0.9:0.98 \
     --initial-learning-rate 0.031625 \
-    --batch-size 4096 \
+    --batch-size ${BATCH_SIZE} \
     --batch-type max-word \
-    --update-interval 2 \
+    --update-interval ${UPDATE_INTERVAL} \
     --max-num-epochs 600 \
     --checkpoint-interval 2000 \
     --stop-training-on-decoder-failure \

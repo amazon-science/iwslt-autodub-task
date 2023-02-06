@@ -272,6 +272,31 @@ sockeye-translate \
 ./sockeye_scripts/evaluation/evaluate-factored.sh processed_datasets/de-text-clean-durations-en-phones-durations/test.en models/sockeye/trained_baselines/baseline_factored_noised1.0/eval/test.en.output
 ```
 
+# Reproduce Sockeye baseline models
+
+Scripts are included to reproduce the Sockeye baselines included here. Before launching training for the factored models, you need specially created vocab files which can be generated using
+```bash
+cd sockeye_scripts/training
+wget https://raw.githubusercontent.com/Proyag/sockeye/factor-pe/sockeye_contrib/create_seq_vocab.py
+python create_seq_vocab.py --min-val 0 --max-val 1023 --output seq_vocab.json
+python create_seq_vocab.py --min-val -4000 --max-val 5000  --output seq_vocab_expanded.json
+```
+
+And now, the training can be launched using
+```bash
+./train_factored_clean.sh
+```
+If you're using >1 GPU, adjust the following settings in the script first
+```bash
+# Set the number of GPUs for distributed training
+# Adjust BATCH_SIZE and UPDATE_INTERVAL according to your GPU situation.
+# For example, if you change N_GPU to 2, you should set update-interval to 8 to have the same effective batch size
+N_GPU=1
+BATCH_SIZE=4096
+UPDATE_INTERVAL=16
+```
+The trained models will be in `models/sockeye`.
+
 # Example 1: Model 7 w/o noise (input: text and speech durations; output: phones and phone durations)
 
 ### Train 
