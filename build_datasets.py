@@ -56,7 +56,7 @@ def build_datasets(data_path,
         if os.path.isfile(os.path.join(data_path, name + ".json")):
             data = json.load(open(os.path.join(data_path, name + ".json")))
         else:
-            logging.info(f"{file} ignored")
+            logging.debug(f"{file} ignored")
             continue
 
         # Data that is not in the covost_tsv TSV files is not used
