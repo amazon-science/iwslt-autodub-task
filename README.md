@@ -19,12 +19,12 @@ limitations under the License.
 
 # Setting up the environment 
 
-Install [Anaconda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html) if needed.
+Install [Miniconda/Anaconda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html) if needed.
 
 
 ```bash
 sudo apt install git-lfs awscli
-git lfs install
+git lfs install --skip-repo
 git clone https://github.com/amazon-science/iwslt-autodub-task.git --recursive
 cd iwslt-autodub-task
 
@@ -41,7 +41,7 @@ conda deactivate
 wget http://data.statmt.org/prism/m39v1.tar
 tar xf m39v1.tar
 rm m39v1.tar
-cd ..
+cd ../..
 ```
 
 # Download and extract data
@@ -49,7 +49,7 @@ cd ..
 Download the CoVoST2 en-de dataset following these steps, or directly follow instructions at https://github.com/facebookresearch/covost#covost-2.
 
 * First, download [Common Voice audio clips and transcripts](https://commonvoice.mozilla.org/en/datasets) (English, version 4). Note that after filling out the form you can copy the url to download from the download button and download it with wget.
-* Next, extract `validated.tsv` from it.
+* Next, extract `validated.tsv` from it:
 ```bash
 mkdir covost_tsv
 tar -xvf en.tar.gz validated.tsv
@@ -65,7 +65,7 @@ python3 get_covost_splits.py -v 2 --src-lang en --tgt-lang de --root . --cv-tsv 
 popd
 ```
 You should now have `covost_v2.en_de.dev.tsv`, `covost_v2.en_de.test.tsv`, and `covost_v2.en_de.train.tsv` in the `covost_tsv` directory.
-* Then extract MFA files.
+* Then extract MFA files:
 ```bash
 mkdir covost_mfa
 tar -xvf data/training/covost2_mfa.tz -C covost_mfa
@@ -82,7 +82,7 @@ This computes how often each speech duration is observed in our training data, s
 
 ## Build dataset
 
-Depending on which model we want to run, we can create the corresponding dataset: 
+Depending on which model we want to run, we can create the corresponding dataset ("text and noised binned segments -> phones and durations" is currently the strongest baseline): 
 ```bash
 # text -> text
 python3 build_datasets.py --en en-text-without-durations --de de-text-without-durations
@@ -97,7 +97,7 @@ python3 build_datasets.py --en en-phones-durations --de de-text-without-duration
 python3 build_datasets.py --en en-phones-durations --de de-text-clean-durations --write-segments-to-file
 
 # text and noised binned segments -> phones and durations
-python3 build_datasets.py --en en-phones-durations --de de-text-noisy-durations --noise-std 0.5 --upsampling 10 --write-segments-to-file
+python3 build_datasets.py --en en-phones-durations --de de-text-noisy-durations --noise-std 0.1 --upsampling 10 --write-segments-to-file
 
 # text and dummy segment tags -> phones and durations
 python3 build_datasets.py --en en-phones-durations --de de-text-dummy-durations --write-segments-to-file
@@ -139,30 +139,30 @@ For use with factored baselines, make sure you use the `--write-segments-to-file
 ## Prepare target factor files
 For the factored baselines, you need to prepare the datasets in the factored formats and generate the auxiliary factors.
 ```bash
-# For example, for text and binned segments -- phones and durations
-python3 separate_factors.py -i processed_datasets/de-text-clean-durations-en-phones-durations -o multi_factored
+# For example, for text and noised binned segments -> phones and durations
+python3 separate_factors.py -i processed_datasets/de-text-noisy-durations0.1-en-phones-durations -o multi_factored
 ```
-This will generate target factor input files in `processed_datasets/de-text-clean-durations-en-phones-durations/multi_factored`.
+This will generate target factor input files in `processed_datasets/de-text-noisy-durations0.1-en-phones-durations/multi_factored/`.
 * `*.en.text` contain the original text, with `<shift>` tokens to account for internal factor shifts so that the factors are conditioned on the main output.
 * `*.en.duration` contain the durations corresponding to each phoneme in `*.en.text`.
 * `*.en.total_duration_remaining`, `*.en.segment_duration_remaining`, and `*.en.pauses_remaining` contain the auxiliary factors that are calculated from the durations.
 
 This is what they should look like:
 ```bash
-$ head -2 processed_datasets/de-text-clean-durations-en-phones-durations/multi_factored/test.en.*
-==> processed_datasets/de-text-clean-durations-en-phones-durations/multi_factored/test.en.duration <==
+$ head -2 processed_datasets/de-text-noisy-durations0.1-en-phones-durations/multi_factored/test.en.*
+==> processed_datasets/de-text-noisy-durations0.1-en-phones-durations/multi_factored/test.en.duration <==
 0 12 3 8 12 4 5 5 9 8 14 0 5 7 0 7 17 5 5 0 10 10 0 3 12 13 3 0 13 13 0 2 3 0 3 5 5 13 8 6 10 0 5 8 12 6 8 7 0 5 8 7 0 3 12 8 16 12 14 0 24
 0 11 0 17 9 15 0 1 4 5 0 9 3 5 0 20 6 7 0 8 7 0 7 5 4 16 0 3 11 13 4 6 26 24 0
 
-==> processed_datasets/de-text-clean-durations-en-phones-durations/multi_factored/test.en.pauses_remaining <==
+==> processed_datasets/de-text-noisy-durations0.1-en-phones-durations/multi_factored/test.en.pauses_remaining <==
 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
 
-==> processed_datasets/de-text-clean-durations-en-phones-durations/multi_factored/test.en.segment_duration_remaining <==
+==> processed_datasets/de-text-noisy-durations0.1-en-phones-durations/multi_factored/test.en.segment_duration_remaining <==
 413 401 398 390 378 374 369 364 355 347 333 333 328 321 321 314 297 292 287 287 277 267 267 264 252 239 236 236 223 210 210 208 205 205 202 197 192 179 171 165 155 155 150 142 130 124 116 109 109 104 96 89 89 86 74 66 50 38 24 24 0
 246 235 235 218 209 194 194 193 189 184 184 175 172 167 167 147 141 134 134 126 119 119 112 107 103 87 87 84 73 60 56 50 24 0 0
 
-==> processed_datasets/de-text-clean-durations-en-phones-durations/multi_factored/test.en.text <==
+==> processed_datasets/de-text-noisy-durations0.1-en-phones-durations/multi_factored/test.en.text <==
 <shift> F AO1 R CH AH0 N AH0 T L IY0 <eow> DH AH1 <eow> R EY1 T S <eow> AH1 V <eow> D EH1 TH S <eow> IH1 N <eow> DH IY0 <eow> Y UW0 N AY1 T IH0 D <eow> K IH1 NG D AH0 M <eow> HH AE1 V <eow> R IH0 D UW1 S T <eow> sp
 <shift> AY1 <eow> D IH1 D <eow> HH AE1 V <eow> sp T AH0 <eow> K AH1 T <eow> sp AH0 <eow> sp F Y UW1 <eow> sp K AO1 R N ER0 Z <eow>
 
@@ -173,7 +173,7 @@ $ head -2 processed_datasets/de-text-clean-durations-en-phones-durations/multi_f
 
 To generate only durations as a single target factor without all the calculated auxiliary factors:
 ```bash
-python3 separate_factors.py -i processed_datasets/de-text-clean-durations-en-phones-durations -o factored --no-shift
+python3 separate_factors.py -i processed_datasets/de-text-noisy-durations0.1-en-phones-durations -o factored --no-shift
 ```
 
 # Decode test set and evaluate using provided Sockeye baseline models

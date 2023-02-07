@@ -193,7 +193,7 @@ def build_datasets(data_path,
         write_to_file(dev_segments, os.path.join(output_dir, 'valid.segments'))
         write_to_file(test_segments, os.path.join(output_dir, 'test.segments'))
 
-    logging.info("Wrote new dataset to {}!".format(output_dir))
+    logging.info("Wrote new dataset to {}".format(output_dir))
 
 def write_to_file(data, path):
     with open(path, 'w') as f:
