@@ -7,3 +7,6 @@
 [submodule "third_party/mosesdecoder"]
 	path = third_party/mosesdecoder
 	url = https://github.com/moses-smt/mosesdecoder.git
+[submodule "third_party/FastSpeech2"]
+	path = third_party/FastSpeech2
+	url = https://github.com/mtresearcher/FastSpeech2.git

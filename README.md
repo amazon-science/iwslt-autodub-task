@@ -297,6 +297,33 @@ UPDATE_INTERVAL=16
 ```
 The trained models will be in `models/sockeye`.
 
+# Generate test set dubs with Sockeye models
+Extract the test set audio/video in `data/test`
+```bash
+pushd data/test
+tar -xzf subset1/subset1.tgz -C subset1
+tar -xzf subset2/subset2.tgz -C subset2
+popd
+```
+
+Set up FastSpeech2 (only for the first usage)
+```bash
+cd third_party/FastSpeech2
+# Create separate environment for FastSpeech2 dependencies
+conda create -n fastspeech2 python=3.8
+conda activate fastspeech2
+pip install -r requirements.txt
+pip install gdown subword-nmt==0.3.7
+# Download and extract pretrained model
+mkdir -p output/ckpt/LJSpeech output/result/LJSpeech
+cd output/ckpt/LJSpeech
+gdown https://drive.google.com/uc?id=1r3fYhnblBJ8hDKDSUDtidJ-BN-xAM9pe
+unzip LJSpeech_900000.zip
+cd ../../../hifigan
+unzip generator_LJSpeech.pth.tar.zip
+conda deactivate fastspeech2
+```
+
 # Example 1: Model 7 w/o noise (input: text and speech durations; output: phones and phone durations)
 
 ### Train 

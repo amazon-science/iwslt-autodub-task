@@ -3,3 +3,6 @@ covost_tsv/
 __pycache__/
 durations_freq_all.pkl
 processed_datasets/
+data/test/subset*/*.mp4
+data/test/subset*/*.wav
+data/test/subset*/*.mov
