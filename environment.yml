@@ -1,0 +1,20 @@
+name: iwslt-autodub
+channels:
+  - anaconda
+  - conda-forge
+  - defaults
+dependencies:
+- python>=3.9
+- pip
+- matplotlib=3.3.4
+- numpy=1.20.1
+- pydub=0.25.1
+- PyYAML=6.0
+- scipy=1.6.2
+- pandas
+- pip:
+  - subword_nmt==0.3.7
+  - git+https://github.com/Proyag/sockeye@factor-pe
+  - git+https://github.com/facebookresearch/fairseq@b8ac3f
+  - sacrebleu==2.3.1
+  - unbabel-comet==1.1.3

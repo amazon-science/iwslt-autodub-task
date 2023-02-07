@@ -40,8 +40,7 @@ if not os.path.exists(durations_path):
         if os.path.isfile(os.path.join(data_path, name + ".json")):
             data = json.load(open(os.path.join(data_path, name + ".json")))
         else:
-            print(file)
-            print("ignored")
+            #print(file, "ignored")
             continue
         if name in train_tsv.keys():
             phones, duration_freq, count_jsons_with_silences, durations, pause_durations, _ = get_speech_durations(data, duration_freq,

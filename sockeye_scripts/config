@@ -1,0 +1,3 @@
+ROOT=~/iwslt-autodub-task
+DATA_HOME=${ROOT}/processed_datasets
+MODELS_HOME=${ROOT}/models/sockeye

@@ -1,0 +1,12 @@
+[submodule "third_party/prism"]
+	path = third_party/prism
+	url = https://github.com/thompsonb/prism.git
+[submodule "third_party/subword-nmt"]
+	path = third_party/subword-nmt
+	url = https://github.com/rsennrich/subword-nmt.git
+[submodule "third_party/mosesdecoder"]
+	path = third_party/mosesdecoder
+	url = https://github.com/moses-smt/mosesdecoder.git
+[submodule "third_party/FastSpeech2"]
+	path = third_party/FastSpeech2
+	url = https://github.com/mtresearcher/FastSpeech2.git
