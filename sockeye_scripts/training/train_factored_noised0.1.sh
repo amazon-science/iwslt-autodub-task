@@ -5,8 +5,8 @@ source `dirname $0`/../config
 SRC=de
 TGT=en
 
-DATA_DIR=${DATA_HOME}/de-text-noisy-durations1.0-en-phones-durations
-MODEL_DIR=${MODELS_HOME}/baseline_factored_noised1.0
+DATA_DIR=${DATA_HOME}/de-text-noisy-durations0.1-en-phones-durations
+MODEL_DIR=${MODELS_HOME}/baseline_factored_noised0.1
 mkdir -p ${MODEL_DIR}
 
 if [[ "$(which sockeye-train)" == "" ]]; then

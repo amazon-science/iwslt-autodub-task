@@ -20,7 +20,7 @@ limitations under the License.
 # Setting up the environment 
 
 Install [Miniconda/Anaconda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html) if needed.
-
+For training models, it is assumed that you have at least 1 GPU, with CUDA drivers set up. This has been tested on 1 NVIDIA V100 GPU with CUDA 11.7, Ubuntu 20.04.
 
 ```bash
 sudo apt install git-lfs awscli
@@ -82,156 +82,70 @@ This computes how often each speech duration is observed in our training data, s
 
 ## Build dataset
 
-Depending on which model we want to run, we can create the corresponding dataset ("text and noised binned segments -> phones and durations" is currently the strongest baseline): 
+Create the processed datasets for training/evaluation ("text and noised binned segments -> phones and durations" is the provided baseline): 
 ```bash
-# text -> text
+# text -> text. Used to generate references for automatic evaluation of translation quality.
 python3 build_datasets.py --en en-text-without-durations --de de-text-without-durations
 
-# text -> phones
-python3 build_datasets.py --en en-phones-without-durations --de de-text-without-durations
-
-# text -> phones and durations
-python3 build_datasets.py --en en-phones-durations --de de-text-without-durations
-
-# text and binned segments -> phones and durations
-python3 build_datasets.py --en en-phones-durations --de de-text-clean-durations --write-segments-to-file
-
-# text and noised binned segments -> phones and durations
+# text and noised binned segments -> phones and durations. For the baseline model.
 python3 build_datasets.py --en en-phones-durations --de de-text-noisy-durations --noise-std 0.1 --upsampling 10 --write-segments-to-file
-
-# text and dummy segment tags -> phones and durations
-python3 build_datasets.py --en en-phones-durations --de de-text-dummy-durations --write-segments-to-file
 ```
-
-Full usage options for `build_datasets.py`:
-```bash
-$ python build_datasets.py -h
-usage: build_datasets.py [-h] --de-output-type {de-text-clean-durations,de-text-noisy-durations,de-text-dummy-durations,de-text-without-durations}
-                              --en-output-type {en-phones-without-durations,en-phones-durations,en-text-without-durations}
-                              [-i INPUT_MFA_DIR] [-o PROCESSED_OUTPUT_DIR] [--covost-dir COVOST_DIR] [--durations-path DURATIONS_PATH] [--bpe-de BPE_DE] [--bpe-en BPE_EN] [--force-redo] [--write-segments-to-file] [--upsampling UPSAMPLING] [--noise-std NOISE_STD] [--num-bins NUM_BINS]
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --de-output-type {de-text-clean-durations,de-text-noisy-durations,de-text-dummy-durations,de-text-without-durations}, --de {de-text-clean-durations,de-text-noisy-durations,  de-text-dummy-durations,de-text-without-durations}
-  --en-output-type {en-phones-without-durations,en-phones-durations,en-text-without-durations}, --en {en-phones-without-durations,en-phones-durations,en-text-without-durations}
-  -i INPUT_MFA_DIR, --input-mfa-dir INPUT_MFA_DIR
-                        Directory containing MFA JSON files (default: covost_mfa/data)
-  -o PROCESSED_OUTPUT_DIR, --processed-output-dir PROCESSED_OUTPUT_DIR
-                        Parent directory for output data (default: processed_datasets)
-  --covost-dir COVOST_DIR
-                        Directory containing covost TSV files (default: ./covost_tsv)
-  --durations-path DURATIONS_PATH
-                        Pickle file containing dictionary of durations and corresponding frequencies (default: durations_freq_all.pkl)
-  --bpe-de BPE_DE       BPE codes for de side (default: data/training/de_codes_10k)
-  --bpe-en BPE_EN       BPE codes for en side (default: data/training/en_codes_10k_mfa)
-  --force-redo, -f      Redo datasets even if the output directory already exists (default: False)
-  --write-segments-to-file
-                        Write unnoise and unbinned segment durations to a separate file (default: False)
-  --upsampling UPSAMPLING
-                        Upsample examples by this factor (for noisy outputs) (default: 1)
-  --noise-std NOISE_STD
-                        Standard deviation for noise added to durations (default: 0.0)
-  --num-bins NUM_BINS   Number of bins. 0 means no binning. (default: 100)
-```
-
-For use with factored baselines, make sure you use the `--write-segments-to-file` option, since that will generate some files required for generating the factored data.
+For full usage options, run `build_datasets.py -h`.  
+For use with factored models, make sure you use the `--write-segments-to-file` option, since that will generate some files required for generating the factored data.
 
 ## Prepare target factor files
 For the factored baselines, you need to prepare the datasets in the factored formats and generate the auxiliary factors.
 ```bash
-# For example, for text and noised binned segments -> phones and durations
 python3 separate_factors.py -i processed_datasets/de-text-noisy-durations0.1-en-phones-durations -o multi_factored
 ```
 This will generate target factor input files in `processed_datasets/de-text-noisy-durations0.1-en-phones-durations/multi_factored/`.
-* `*.en.text` contain the original text, with `<shift>` tokens to account for internal factor shifts so that the factors are conditioned on the main output.
-* `*.en.duration` contain the durations corresponding to each phoneme in `*.en.text`.
-* `*.en.total_duration_remaining`, `*.en.segment_duration_remaining`, and `*.en.pauses_remaining` contain the auxiliary factors that are calculated from the durations.
+* `*.en.text`: Main output containing the original text, with `<shift>` tokens to account for internal factor shifts so that the factors are conditioned on the main output.
+* `*.en.duration`: Main target factor to predict durations. Contains the durations (number of frames) corresponding to each phoneme in `*.en.text`.
+* `*.en.total_duration_remaining`: Auxiliary factor to count down the number of frames remaining in each **line**. This is calculated from the (noised) segment durations, and counts down by the number of frames generated at each time step. Note that this may not count down to 0 due to the noise added to the segment durations.
+* `*.en.segment_duration_remaining`: Auxiliary factor to count down the number of frames remaining in each **segment**, i.e. until a `[pause]` token is encountered. Similar to the previous factor, but initialized by the corresponding target segment duration for each segment within a line.
+* `*.en.pauses_remaining`: Auxiliary factor that counts down the number of `[pause]` tokens remaining in a line.
 
 This is what they should look like:
 ```bash
-$ head -2 processed_datasets/de-text-noisy-durations0.1-en-phones-durations/multi_factored/test.en.*
+$ head -2 processed_datasets/de-text-noisy-durations0.1-en-phones-durations/multi_factored/test.en.{text,duration,total_duration_remaining,segment_duration_remaining,pauses_remaining}
+==> processed_datasets/de-text-noisy-durations0.1-en-phones-durations/multi_factored/test.en.text <==
+<shift> F AO1 R CH AH0 N AH0 T L IY0 <eow> DH AH1 <eow> R EY1 T S <eow> AH1 V <eow> D EH1 TH S <eow> IH1 N <eow> DH IY0 <eow> Y UW0 N AY1 T IH0 D <eow> K IH1 NG D AH0 M <eow> HH AE1 V <eow> R IH0 D UW1 S T <eow> sp
+<shift> AY1 <eow> D IH1 D <eow> HH AE1 V <eow> sp T AH0 <eow> K AH1 T <eow> sp AH0 <eow> sp F Y UW1 <eow> sp K AO1 R N ER0 Z <eow>
+
 ==> processed_datasets/de-text-noisy-durations0.1-en-phones-durations/multi_factored/test.en.duration <==
 0 12 3 8 12 4 5 5 9 8 14 0 5 7 0 7 17 5 5 0 10 10 0 3 12 13 3 0 13 13 0 2 3 0 3 5 5 13 8 6 10 0 5 8 12 6 8 7 0 5 8 7 0 3 12 8 16 12 14 0 24
 0 11 0 17 9 15 0 1 4 5 0 9 3 5 0 20 6 7 0 8 7 0 7 5 4 16 0 3 11 13 4 6 26 24 0
 
-==> processed_datasets/de-text-noisy-durations0.1-en-phones-durations/multi_factored/test.en.pauses_remaining <==
-0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
-0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+==> processed_datasets/de-text-noisy-durations0.1-en-phones-durations/multi_factored/test.en.total_duration_remaining <==
+413 401 398 390 378 374 369 364 355 347 333 333 328 321 321 314 297 292 287 287 277 267 267 264 252 239 236 236 223 210 210 208 205 205 202 197 192 179 171 165 155 155 150 142 130 124 116 109 109 104 96 89 89 86 74 66 50 38 24 24 0
+246 235 235 218 209 194 194 193 189 184 184 175 172 167 167 147 141 134 134 126 119 119 112 107 103 87 87 84 73 60 56 50 24 0 0
 
 ==> processed_datasets/de-text-noisy-durations0.1-en-phones-durations/multi_factored/test.en.segment_duration_remaining <==
 413 401 398 390 378 374 369 364 355 347 333 333 328 321 321 314 297 292 287 287 277 267 267 264 252 239 236 236 223 210 210 208 205 205 202 197 192 179 171 165 155 155 150 142 130 124 116 109 109 104 96 89 89 86 74 66 50 38 24 24 0
 246 235 235 218 209 194 194 193 189 184 184 175 172 167 167 147 141 134 134 126 119 119 112 107 103 87 87 84 73 60 56 50 24 0 0
 
-==> processed_datasets/de-text-noisy-durations0.1-en-phones-durations/multi_factored/test.en.text <==
-<shift> F AO1 R CH AH0 N AH0 T L IY0 <eow> DH AH1 <eow> R EY1 T S <eow> AH1 V <eow> D EH1 TH S <eow> IH1 N <eow> DH IY0 <eow> Y UW0 N AY1 T IH0 D <eow> K IH1 NG D AH0 M <eow> HH AE1 V <eow> R IH0 D UW1 S T <eow> sp
-<shift> AY1 <eow> D IH1 D <eow> HH AE1 V <eow> sp T AH0 <eow> K AH1 T <eow> sp AH0 <eow> sp F Y UW1 <eow> sp K AO1 R N ER0 Z <eow>
-
-==> processed_datasets/de-text-clean-durations-en-phones-durations/multi_factored/test.en.total_duration_remaining <==
-413 401 398 390 378 374 369 364 355 347 333 333 328 321 321 314 297 292 287 287 277 267 267 264 252 239 236 236 223 210 210 208 205 205 202 197 192 179 171 165 155 155 150 142 130 124 116 109 109 104 96 89 89 86 74 66 50 38 24 24 0
-246 235 235 218 209 194 194 193 189 184 184 175 172 167 167 147 141 134 134 126 119 119 112 107 103 87 87 84 73 60 56 50 24 0 0
+==> processed_datasets/de-text-noisy-durations0.1-en-phones-durations/multi_factored/test.en.pauses_remaining <==
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
 ```
 
-To generate only durations as a single target factor without all the calculated auxiliary factors:
-```bash
-python3 separate_factors.py -i processed_datasets/de-text-noisy-durations0.1-en-phones-durations -o factored --no-shift
-```
-
-# Decode test set and evaluate using provided Sockeye baseline models
+# Decode test set and evaluate using provided Sockeye baseline model
 
 NOTE: Test set here does not refer to the specific subsets in `data/test/`; rather it refers to the full test sets generated from CoVoST2.
 
-Before you proceed, in `sockeye_scripts/config`, set ROOT as the path of this repo. For example `ROOT=~/iwslt-autodub-task`
+We provide a baseline model checkpoint in **models/sockeye/trained_baselines/baseline_factored_noised0.1**. This uses a target factor to predict durations and additional target factors to help the model keep track. The training segment durations have Gaussian noise (std. dev. 0.1) added to allow the model to be flexible about timing for real test speech data.
 
-There are 3 model checkpoints provided in `models/sockeye/trained_baselines`:
-1. **baseline_interleaved**: Vanilla seq2seq model trained to generate an alternating sequence of phonemes and durations.
-2. **baseline_factored_clean**: Using a target factor to predict durations and additional target factors to help the model keep track.
-3. **baseline_factored_noised1.0**: Same as the previous one, but where the training segment durations had Gaussian noise (std. dev. 1.0) added.
+Before you proceed, in `sockeye_scripts/config`, set ROOT as the path of this repo. For example, `ROOT=~/iwslt-autodub-task`.
 
-Before decoding, please make sure you have run the data and factor preparation steps, so that you have at least `processed_datasets/de-text-clean-durations-en-phones-durations` prepared with the `multi_factored` subdirectory, `processed_datasets/de-text-without-durations-en-text-without-durations` for the translation reference text files.
+Before decoding, please make sure you have run the data and factor preparation steps, so that you have at least `processed_datasets/de-text-noised-durations0.1-en-phones-durations` prepared with the `multi_factored` subdirectory, `processed_datasets/de-text-without-durations-en-text-without-durations` for the translation reference text files. If you ran the steps in the previous section, you will have these already.
 
-## Decoding using **baseline_interleaved**
-For **baseline_interleaved**, the input format is BPEd German text followed by the binned segment durations, as in the `{train,valid,test}.de` files in the prepared datasets. For example:
+## Decoding using **baseline_factored_noised0.1**
+The input format for decoding is a specific JSON format that can be prepared using:
 ```bash
-$ head -2 ~/iwslt-autodub-task/processed_datasets/de-text-clean-durations-en-phones-durations/test.de
-Glück@@ licherweise sind die Ster@@ ber@@ aten im Vereinigten Königreich ges@@ unken <||> <bin87>
-Ich musste einige Ab@@ str@@ ich@@ e mach@@ en@@ . <||> <bin44>
-```
-To decode using **baseline_interleaved**, run
-```bash
-mkdir -p models/sockeye/trained_baselines/baseline_interleaved/eval
-# Reduce --batch-size if this doesn't fit on your GPU, or prepend CUDA_VISIBLE_DEVICES= to decode on CPU
-sockeye-translate \
-    -i processed_datasets/de-text-clean-durations-en-phones-durations/test.de \
-    -o models/sockeye/trained_baselines/baseline_interleaved/eval/test.en.output \
-    --models models/sockeye/trained_baselines/baseline_interleaved/model \
-    --checkpoints 29 \
-    -b 5 \
-    --batch-size 32 \
-    --chunk-size 20000 \
-    --output-type translation \
-    --max-output-length 768 \
-    --quiet
-```
-
-## Evaluate **baseline_interleaved** output
-```bash
-./sockeye_scripts/evaluation/evaluate-interleaved.sh processed_datasets/de-text-clean-durations-en-phones-durations/test.en models/sockeye/trained_baselines/baseline_interleaved/eval/test.en.output
-```
-
-This will print:
-* Translation quality metrics
-    - BLEU
-    - Prism
-    - COMET
-* Speech overlap metrics
-
-## Decoding using **baseline_factored_\***
-For **baseline_factored_clean** and **baseline_factored_noised1.0**, the input format is a specific JSON format that can be prepared using:
-```bash
-$ python3 sockeye_scripts/decoding/create-json-inputs.py -d processed_datasets/de-text-clean-durations-en-phones-durations --subset test --output-segment-durations -o processed_datasets/de-text-clean-durations-en-phones-durations/test.de.json
+$ python3 sockeye_scripts/decoding/create-json-inputs.py -d processed_datasets/de-text-noisy-durations0.1-en-phones-durations --subset test --output-segment-durations -o processed_datasets/de-text-noisy-durations0.1-en-phones-durations/test.de.json
 
 # Check JSON file looks like this
-$ head -2 ~/iwslt-autodub-task/processed_datasets/de-text-clean-durations-en-phones-durations/test.de.json | jq
+$ head -2 ~/iwslt-autodub-task/processed_datasets/de-text-noisy-durations0.1-en-phones-durations/test.de.json | jq
 {
   "text": "Glück@@ licherweise sind die Ster@@ ber@@ aten im Vereinigten Königreich ges@@ unken <||> <bin87>",
   "target_prefix": "<shift>",
@@ -262,14 +176,14 @@ $ head -2 ~/iwslt-autodub-task/processed_datasets/de-text-clean-durations-en-pho
 }
 ```
 
-To decode using **baseline_factored_clean** (for **baseline_factored_noised1.0**, just replace `clean` with `noised1.0` and use `--checkpoint 73` in the command), run
+To decode using **baseline_factored_noised0.1**, run
 ```bash
-mkdir -p models/sockeye/trained_baselines/baseline_factored_clean/eval
+mkdir -p models/sockeye/trained_baselines/baseline_factored_noised0.1/eval
 sockeye-translate \
-    -i processed_datasets/de-text-clean-durations-en-phones-durations/test.de.json \
-    -o models/sockeye/trained_baselines/baseline_factored_clean/eval/test.en.output \
-    --models models/sockeye/trained_baselines/baseline_factored_clean/model \
-    --checkpoints 70 \
+    -i processed_datasets/de-text-noisy-durations0.1-en-phones-durations/test.de.json \
+    -o models/sockeye/trained_baselines/baseline_factored_noised0.1/eval/test.en.output \
+    --models models/sockeye/trained_baselines/baseline_factored_noised0.1/model \
+    --checkpoints 78 \
     -b 5 \
     --batch-size 32 \
     --chunk-size 20000 \
@@ -279,14 +193,19 @@ sockeye-translate \
     --json-input \
     --quiet
 ```
+This should take around 5 minutes on 1 V100 GPU, or around an hour without a GPU.
 
-## Evaluate **baseline_factored_\*** output
+## Evaluate **baseline_factored_noised0.1** output
 ```bash
-# For baseline_factored_clean
-./sockeye_scripts/evaluation/evaluate-factored.sh processed_datasets/de-text-clean-durations-en-phones-durations/test.en models/sockeye/trained_baselines/baseline_factored_clean/eval/test.en.output
-# For baseline_factored_noised1.0
-./sockeye_scripts/evaluation/evaluate-factored.sh processed_datasets/de-text-clean-durations-en-phones-durations/test.en models/sockeye/trained_baselines/baseline_factored_noised1.0/eval/test.en.output
+./sockeye_scripts/evaluation/evaluate-factored.sh processed_datasets/de-text-noisy-durations0.1-en-phones-durations/test.en models/sockeye/trained_baselines/baseline_factored_noised0.1/eval/test.en.output
 ```
+
+This will print:
+* Translation quality metrics
+    - BLEU
+    - Prism
+    - COMET
+* Speech overlap metrics
 
 # Reproduce Sockeye baseline models
 
@@ -294,13 +213,12 @@ Scripts are included to reproduce the Sockeye baselines included here. Before la
 ```bash
 cd sockeye_scripts/training
 wget https://raw.githubusercontent.com/Proyag/sockeye/factor-pe/sockeye_contrib/create_seq_vocab.py
-python create_seq_vocab.py --min-val 0 --max-val 1023 --output seq_vocab.json
 python create_seq_vocab.py --min-val -4000 --max-val 5000  --output seq_vocab_expanded.json
 ```
 
 And now, the training can be launched using
 ```bash
-./train_factored_clean.sh
+./train_factored_noised0.1.sh
 ```
 If you're using >1 GPU, adjust the following settings in the script first
 ```bash
@@ -338,168 +256,4 @@ unzip LJSpeech_900000.zip
 cd ../../../hifigan
 unzip generator_LJSpeech.pth.tar.zip
 conda deactivate fastspeech2
-```
-
-# Example 1: Model 7 w/o noise (input: text and speech durations; output: phones and phone durations)
-
-### Train 
-
-```bash
-cd processed_datasets/de-text-clean-durations-en-phones-durations
-fairseq-preprocess --source-lang de --target-lang en --trainpref train --validpref valid  --testpref test --destdir ../../data-bin/model7 --workers 20
-
-cd ../../
-
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 fairseq-train ./data-bin/model7 \
-    --arch transformer_wmt_en_de --optimizer adam --adam-betas '(0.9, 0.98)' --clip-norm 0.0 \
-    --lr 5e-4 --lr-scheduler inverse_sqrt --warmup-updates 4000 \
-    --dropout 0.3 --weight-decay 0.0001 \
-    --criterion label_smoothed_cross_entropy --label-smoothing 0.1 \
-    --max-tokens 4096 \
-    --eval-bleu \
-    --eval-bleu-args '{"beam": 5, "max_len_a": 1.2, "max_len_b": 10}' \
-    --eval-bleu-detok moses \
-    --eval-bleu-remove-bpe --eval-bleu-print-samples --save-dir trained_models/model7 --best-checkpoint-metric bleu --maximize-best-checkpoint-metric --save-interval 10 --max-epoch 200 > ./model7.log
-```
-
-### Evaluate in terms of BLEU
-
-```
-bash postprocess_phones.sh trained_models/model7 model7 1 durations
-```
-argument 1: path where all checkpoints of this model are saved
-
-argument 2: binarized data dir name
-
-argument 3: in which GPU should this run
-
-argument 4: if this model has durations on the target side (English) (values: `durations` or `withoutdurations`)
-
-The results will be saved in `results_valid_$modelname.txt`, where `$modelname` is argument 2. Select the model with highest validation BLEU to compute the test set BLEU score.
-
-
-```
-bash postprocess_phones_test.sh trained_models/model7/checkpoint100.pt model7 0 durations
-```
-
-argument 1: path where the best valid checkpoint is saved
-
-argument 2: binarized data dir name
-
-argument 3: in which GPU should this run
-
-argument 4: if this model has durations on the target side (English) (values: `durations` or `withoutdurations`)
-
-Optionally delete temp files afterwards: `rm -r model7gpu0*`
-
-### Evaluate in terms of speech overlap
-
-After you have run the `postprocess_phones` and `postprocess_phones_test` scripts, run:
-
-```
- python3 count_durations.py test_phones.en testmodel7.hyp
- ```
-
-### Synthesize speech and dubs from our German videos (new dataset)
-
-```
-git clone https://github.com/snakers4/silero-vad.git silero_vad
-git clone https://github.com/ming024/FastSpeech2.git FastSpeech2
-mkdir FastSpeech2/output/ckpt/LJSpeech
-mkdir FastSpeech2/output/result/LJSpeech 
-```
-
-Download the [pretrained FastSpeech2 model](https://drive.google.com/file/d/1r3fYhnblBJ8hDKDSUDtidJ-BN-xAM9pe/view?usp=share_link) and place it in `FastSpeech2/output/ckpt/LJSpeech`.
-
-Then please execute the following commands:
-
-``` 
-unzip FastSpeech2/hifigan/generator_LJSpeech.pth.tar.zip
-pip install -r FastSpeech2/requirements.txt
-git apply patch_to_use_mfa_durations.patch
-mkdir -p for_human_eval
-```
-If you want to generate dubs for subsets 1,2 (please see description in the paper), you need to download the following files from s3:
-
-```
-aws s3 cp <TODO_dir2>/original_91_videos_subset1/ for_human_eval/original_videos --recursive
-aws s3 cp <TODO_dir2>/original_101_videos_subset2/ for_human_eval/original_videos --recursive
-aws s3 cp <TODO_dir1>/covost-2/custom-test-set/ for_human_eval/ --recursive 
-```
-
-Assuming you have trained a model (`model7` for this example), please run the following script to get dubbed videos, compute BLEU scores + speech overlap:
-
-``` 
-bash generate_dub.sh model7 test_set trained_models/model7/checkpoint170.pt
-``` 
-arg 1: pretrained model 
-
-arg 2: specifies the subset used and can be either `test_set` (subset 1) or `test_set_with_pauses.txt` (subset 2)
-
-arg 3: path to checkpoint 
-
-To embed the wav files back to video (and finally get the dubs), run:
-
-``` 
-bash embed_wav_to_videos.sh
-``` 
-Please adjust the `$modelname` and `$subset` in `embed_wav_to_videos.sh`, as well as the indices if you want to use this script for other pretrained models and/or subsets.
-
-# Example 2: Model 7 with noise with standard deviation 0.1 (input: text and speech durations; output: phones and phone durations)
-
-### Train 
-
-```
-cd processed_datasets/de-text-noisy-durations0.1-en-phones-durations
-fairseq-preprocess --source-lang de --target-lang en --trainpref train --validpref valid  --testpref test --destdir ../../data-bin/model7-sd0.1 --workers 20
-
-cd ../../
-
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 fairseq-train ./data-bin/model7-sd0.1 \
-    --arch transformer_wmt_en_de --optimizer adam --adam-betas '(0.9, 0.98)' --clip-norm 0.0 \
-    --lr 5e-4 --lr-scheduler inverse_sqrt --warmup-updates 4000 \
-    --dropout 0.3 --weight-decay 0.0001 \
-    --criterion label_smoothed_cross_entropy --label-smoothing 0.1 \
-    --max-tokens 4096 \
-    --eval-bleu \
-    --eval-bleu-args '{"beam": 5, "max_len_a": 1.2, "max_len_b": 10}' \
-    --eval-bleu-detok moses \
-    --eval-bleu-remove-bpe --eval-bleu-print-samples --save-dir trained_models/model7-sd0.1 --best-checkpoint-metric bleu --maximize-best-checkpoint-metric --save-interval 1 --max-epoch 20 > ./model7-sd0.1.log
-```
-
-
-Notice that we train the model for 20 epochs (while model 7 was trained for 200 epochs). This happens because the dataset we are using now is 10x bigger than the dataset of `model 7` (for each sentence of the initial dataset, 10 noisy versions were added).
-
-Therefore, an "epoch" of `model7-sd0.1` is actually equal to 10 x epoch of model 7. The command above makes sure that we will train the model for the same number of instances as `model 7`.
-
-The rest of the steps are the same as in Example 1. 
-
-
-# Example 3: Model 1b (text-to-text baseline)
-
-### Train 
-
-```
-cd processed_datasets/de-text-without-durations-en-text-without-durations
-fairseq-preprocess --source-lang de --target-lang en --trainpref train --validpref valid  --testpref test --destdir ../../data-bin/model1b --workers 20
-
-cd ../../
-
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 fairseq-train ./data-bin/model1b \
-    --arch transformer_wmt_en_de --optimizer adam --adam-betas '(0.9, 0.98)' --clip-norm 0.0 \
-    --lr 5e-4 --lr-scheduler inverse_sqrt --warmup-updates 4000 \
-    --dropout 0.3 --weight-decay 0.0001 \
-    --criterion label_smoothed_cross_entropy --label-smoothing 0.1 \
-    --max-tokens 4096 \
-    --eval-bleu \
-    --eval-bleu-args '{"beam": 5, "max_len_a": 1.2, "max_len_b": 10}' \
-    --eval-bleu-detok moses \
-    --eval-bleu-remove-bpe --eval-bleu-print-samples --save-dir trained_models/model1b --best-checkpoint-metric bleu --maximize-best-checkpoint-metric --save-interval 10 --max-epoch 200 > ./model1b.log
-```
-### Evaluate in terms of BLEU
-
-Assuming the checkpoint with the best valid BLEU is checkpoint_best.pt:
-
-```
-bash postprocess_text.sh trained_models/model1b/checkpoint_best.pt model1b 0
 ```
