@@ -19,6 +19,9 @@ limitations under the License.
 
 # Setting up the environment 
 
+Install [Anaconda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html) if needed.
+
+
 ```bash
 sudo apt install git-lfs awscli
 git lfs install
@@ -34,20 +37,22 @@ cd third_party/prism
 conda create -n prism python=3.7 -y
 conda activate prism
 pip install -r requirements.txt
-conda deactivate prism
+conda deactivate
 wget http://data.statmt.org/prism/m39v1.tar
 tar xf m39v1.tar
 rm m39v1.tar
+cd ..
 ```
 
 # Download and extract data
 
 Download the CoVoST2 en-de dataset following these steps, or directly follow instructions at https://github.com/facebookresearch/covost#covost-2.
 
-* First, download [Common Voice audio clips and transcripts](https://commonvoice.mozilla.org/en/datasets) (English, version 4). Then, extract `validated.tsv` from it.
+* First, download [Common Voice audio clips and transcripts](https://commonvoice.mozilla.org/en/datasets) (English, version 4). Note that after filling out the form you can copy the url to download from the download button and download it with wget.
+* Next, extract `validated.tsv` from it.
 ```bash
 mkdir covost_tsv
-tar -xvf en.tar validated.tsv
+tar -xvf en.tar.gz validated.tsv
 mv validated.tsv covost_tsv/
 ```
 * Then extract the required TSV files:
@@ -56,7 +61,7 @@ mv validated.tsv covost_tsv/
 pushd covost_tsv
 wget https://dl.fbaipublicfiles.com/covost/covost_v2.en_de.tsv.tar.gz https://raw.githubusercontent.com/facebookresearch/covost/main/get_covost_splits.py
 tar -xzf covost_v2.en_de.tsv.tar.gz
-python3 get_covost_splits -v 2 --src-lang en --tgt-lang de --root . --cv-tsv validated.tsv
+python3 get_covost_splits.py -v 2 --src-lang en --tgt-lang de --root . --cv-tsv validated.tsv
 popd
 ```
 You should now have `covost_v2.en_de.dev.tsv`, `covost_v2.en_de.test.tsv`, and `covost_v2.en_de.train.tsv` in the `covost_tsv` directory.
@@ -79,12 +84,23 @@ This computes how often each speech duration is observed in our training data, s
 
 Depending on which model we want to run, we can create the corresponding dataset: 
 ```bash
-python3 build_datasets.py --en en-text-without-durations --de de-text-without-durations # text -- text
-python3 build_datasets.py --en en-phones-without-durations --de de-text-without-durations # text -- phones
-python3 build_datasets.py --en en-phones-durations --de de-text-without-durations # text -- phones and durations
-python3 build_datasets.py --en en-phones-durations --de de-text-clean-durations --write-segments-to-file # text and binned segments -- phones and durations
-python3 build_datasets.py --en en-phones-durations --de de-text-noisy-durations --noise-std 0.5 --upsampling 10 --write-segments-to-file # text and noised binned segments -- phones and durations
-python3 build_datasets.py --en en-phones-durations --de de-text-dummy-durations --write-segments-to-file # text and dummy segment tags -- phones and durations
+# text -> text
+python3 build_datasets.py --en en-text-without-durations --de de-text-without-durations
+
+# text -> phones
+python3 build_datasets.py --en en-phones-without-durations --de de-text-without-durations
+
+# text -> phones and durations
+python3 build_datasets.py --en en-phones-durations --de de-text-without-durations
+
+# text and binned segments -> phones and durations
+python3 build_datasets.py --en en-phones-durations --de de-text-clean-durations --write-segments-to-file
+
+# text and noised binned segments -> phones and durations
+python3 build_datasets.py --en en-phones-durations --de de-text-noisy-durations --noise-std 0.5 --upsampling 10 --write-segments-to-file
+
+# text and dummy segment tags -> phones and durations
+python3 build_datasets.py --en en-phones-durations --de de-text-dummy-durations --write-segments-to-file
 ```
 
 Full usage options for `build_datasets.py`:
