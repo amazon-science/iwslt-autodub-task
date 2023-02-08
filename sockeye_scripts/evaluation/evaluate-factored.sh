@@ -69,7 +69,8 @@ fi
 echo "Calculating translation quality metrics:"
 sacrebleu ${REF_TEXT} -m bleu -f text -lc --tokenize none < ${HYP}.words
 echo "Prism:"
-`dirname ${CONDA_PREFIX}`/prism/bin/python ${ROOT}/third_party/prism/prism.py --cand ${HYP}.words --ref ${REF_TEXT} --lang en --model-dir ${ROOT}/third_party/prism/m39v1
+# Prism uses PyTorch 1.4.0 which expects CUDA 10.1. Sockeye expects a much more modern CUDA (e.g. 11.7). So run prism on CPU (takes ~8min)
+CUDA_VISIBLE_DEVICES=-1 `dirname ${CONDA_PREFIX}`/prism/bin/python ${ROOT}/third_party/prism/prism.py --cand ${HYP}.words --ref ${REF_TEXT} --lang en --model-dir ${ROOT}/third_party/prism/m39v1
 echo "COMET:"
 comet-score --gpus 1 --quiet --batch_size 128 \
     --model wmt21-comet-da \
