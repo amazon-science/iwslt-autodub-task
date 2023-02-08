@@ -48,11 +48,11 @@ if not os.path.exists(durations_path):
 
             assert len(durations) >= 1
             counter += 1
-            if counter % 100000 == 0:
-                print(counter)
+            if counter % 50000 == 0:
+                print('done:', counter)
 
     with open(durations_path, 'wb') as f:
         pickle.dump(duration_freq, f)
-        print("dumped new durations in {}!".format(durations_path))
+        print("Wrote durations to {}".format(durations_path))
 else:
     print("The dictionary of speech durations has already been computed and stored in {}".format(durations_path))

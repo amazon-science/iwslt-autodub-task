@@ -20,7 +20,8 @@ limitations under the License.
 # Setting up the environment 
 
 Install [Miniconda/Anaconda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html) if needed.
-For training models, it is assumed that you have at least 1 GPU, with CUDA drivers set up. This has been tested on 1 NVIDIA V100 GPU with CUDA 11.7, Ubuntu 20.04.
+For training models, it is assumed that you have at least 1 GPU, with CUDA drivers set up.
+This has been tested on 1 NVIDIA V100 GPU with [CUDA 11.7](https://developer.nvidia.com/cuda-11-7-0-download-archive), on Ubuntu 20.04.
 
 ```bash
 sudo apt install git-lfs awscli
@@ -68,7 +69,7 @@ You should now have `covost_v2.en_de.dev.tsv`, `covost_v2.en_de.test.tsv`, and `
 * Then extract MFA files:
 ```bash
 mkdir covost_mfa
-tar -xvf data/training/covost2_mfa.tz -C covost_mfa
+tar -xf data/training/covost2_mfa.tz -C covost_mfa
 mv covost_mfa/covost2_mfa covost_mfa/data
 ```
 Now, all the json files should be in `covost_mfa/data`.
@@ -133,7 +134,7 @@ $ head -2 processed_datasets/de-text-noisy-durations0.1-en-phones-durations/mult
 
 NOTE: Test set here does not refer to the specific subsets in `data/test/`; rather it refers to the full test sets generated from CoVoST2.
 
-We provide a baseline model checkpoint in **models/sockeye/trained_baselines/baseline_factored_noised0.1**. This uses a target factor to predict durations and additional target factors to help the model keep track. The training segment durations have Gaussian noise (std. dev. 0.1) added to allow the model to be flexible about timing for real test speech data.
+We provide a baseline model checkpoint in **models/sockeye/trained_baselines/baseline_factored_noised0.1**. This uses a target factor to predict durations and additional target factors to help the model keep track of time. The training segment durations have Gaussian noise (std. dev. 0.1) added to teach the model to be flexible about timing in hopes of striking a balance between speech overlap, speech naturalness, and translation quality. (Note that the speech overlap in real human dubs is [only about 70%.](https://arxiv.org/abs/2212.12137))
 
 Before you proceed, in `sockeye_scripts/config`, set ROOT as the path of this repo. For example, `ROOT=~/iwslt-autodub-task`.
 
