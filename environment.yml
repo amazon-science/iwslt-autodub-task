@@ -15,6 +15,5 @@ dependencies:
 - pip:
   - subword_nmt==0.3.7
   - git+https://github.com/Proyag/sockeye@factor-pe
-  - git+https://github.com/facebookresearch/fairseq@b8ac3f
   - sacrebleu==2.3.1
   - unbabel-comet==1.1.3
