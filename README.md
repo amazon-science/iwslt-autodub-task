@@ -245,6 +245,7 @@ popd
 
 Set up FastSpeech2 (only for the first usage)
 ```bash
+sudo apt-get install ffmpeg
 cd third_party/FastSpeech2
 # Create separate environment for FastSpeech2 dependencies
 conda create -n fastspeech2 python=3.8
@@ -258,7 +259,7 @@ gdown https://drive.google.com/uc?id=1r3fYhnblBJ8hDKDSUDtidJ-BN-xAM9pe
 unzip LJSpeech_900000.zip
 cd ../../../hifigan
 unzip generator_LJSpeech.pth.tar.zip
-conda deactivate fastspeech2
+conda deactivate
 ```
 
 Generate dubbed audios for the test set subsets using FastSpeech2. Note: This will take some time to run — it took us ~1 hour per subset with 1 V100 GPU.
