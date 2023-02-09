@@ -37,30 +37,15 @@ if [[ ! -s ${HYP}.words ]]; then
         | cut -d' ' -f1-1023 \
         > ${HYP}.nopause.phoneticwords.phonebpe
 
-    # fairseq expects specific filenames
-    ln -sf `realpath ${HYP}.nopause.phoneticwords.phonebpe` ${EVAL_DIR}/test.en
-    ln -sf `realpath ${EVAL_DIR}/test.en` ${EVAL_DIR}/test.txt
-
-    fairseq-preprocess \
-        --testpref ${EVAL_DIR}/test \
-        --source-lang en \
-        --target-lang txt \
-        --srcdict ${P2G_DIR}/dict.en.txt \
-        --tgtdict ${P2G_DIR}/dict.txt.txt \
-        --destdir ${EVAL_DIR}/data-bin
-
-    # Reduce --max-tokens if your GPU runs out of memory
-    fairseq-generate \
-        ${EVAL_DIR}/data-bin \
-        --path ${ROOT}/models/phoneme_to_grapheme/checkpoint_best.pt \
-        --gen-subset test \
-        --source-lang en \
-        --target-lang txt \
-        --max-tokens 16384 \
-        --data-buffer-size 100 \
-        --beam 5 \
-        --remove-bpe \
-        | grep -P "^H" | sort -V | cut -f 3- | sed 's/\[en\]//g' \
+    # Reduce --batch-size if your GPU runs out of memory
+    sockeye-translate \
+        --models ${ROOT}/models/phoneme_to_grapheme \
+        --checkpoint 48 \
+        -b 5 \
+        --batch-size 128 \
+        --chunk-size 20000 \
+        -i ${HYP}.nopause.phoneticwords.phonebpe \
+        | sed -r "s/(@@ )|(@@ ?$)//g" \
         > ${HYP}.words
 else
     echo "${HYP}.words already exists and will not be re-generated."
