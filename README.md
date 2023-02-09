@@ -24,7 +24,7 @@ For training models, it is assumed that you have at least 1 GPU, with CUDA drive
 This has been tested on 1 NVIDIA V100 GPU with [CUDA 11.7](https://developer.nvidia.com/cuda-11-7-0-download-archive), on Ubuntu 20.04.
 
 ```bash
-sudo apt install git-lfs awscli
+sudo apt install git-lfs awscli ffmpeg
 git lfs install --skip-repo
 git clone https://github.com/amazon-science/iwslt-autodub-task.git --recursive
 cd iwslt-autodub-task
@@ -233,6 +233,8 @@ UPDATE_INTERVAL=16
 The trained models will be in `models/sockeye`.
 
 # Generate test set dubs with Sockeye models
+There are German videos for two subsets of the test set in `data/test/subset{1,2}`. We want to generate English dubbed videos for these.
+
 Extract the test set audio/video in `data/test`
 ```bash
 pushd data/test
@@ -258,3 +260,11 @@ cd ../../../hifigan
 unzip generator_LJSpeech.pth.tar.zip
 conda deactivate fastspeech2
 ```
+
+Generate dubbed audios for the test set subsets using FastSpeech2. Note: This will take some time to run — it took us ~1 hour per subset with 1 V100 GPU.
+```bash
+cd ~/iwslt-autodub-task  # Or the path to the repo home, if different
+python synthesize_speech.py --subset 1
+python synthesize_speech.py --subset 2
+```
+Corresponding to each file `*.X.mov` or `*.X.mp4` in `data/test/subset{1,2}`, a dubbed video `data/test/subset{1,2}/dubbed/*.X.mp4` will be created.  
