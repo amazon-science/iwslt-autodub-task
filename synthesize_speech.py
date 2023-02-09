@@ -9,6 +9,7 @@ logging.basicConfig(level=logging.INFO,
                     format='[%(asctime)s][%(levelname)s] %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S')
 
+from tqdm import tqdm
 import numpy as np
 import torch
 from subword_nmt.apply_bpe import BPE
@@ -153,7 +154,7 @@ if __name__ == '__main__':
     if args.source_text is None:
         args.source_text = os.path.join(args.data_dir, "subset" + args.subset + '.de')
 
-    # Do not change: These directories are fixed for FastSpeech2
+    # Do not change: These directories are fixed for FastSpeech2 trained on LJSpeech data
     output_dir = os.path.join(args.fastspeech_dir, 'output', 'result', 'LJSpeech')
     durations_dir = os.path.join(args.fastspeech_dir, 'preprocessed_data', 'LJSpeech', 'duration')
 
@@ -180,23 +181,19 @@ if __name__ == '__main__':
 
     sockeye_translator = SockeyeTranslator(args.sockeye_model)
 
-    # FastSpeech2 doesn't work unless you're in the right directory due to relative paths in their configs.
-    os.chdir(args.fastspeech_dir)
-
-    with open(os.path.join(output_dir, 'subset' + args.subset + '.en.output'), 'w') as f_out:
-        for idx, audio_file in enumerate(audio_files):
-            logging.info(f"Processing {audio_file}")
+    speech_timestamps = []
+    pauses = []
+    hyp_segments = []
+    logging.info(f"Generating translated phoneme and duration outputs")
+    with open(os.path.join(output_dir, 'subset' + args.subset + '.en.output'), 'w') as f_out, \
+         open(os.path.join(output_dir, 'subset' + args.subset + '.en.fs2_inp'), 'w') as f_fs2_inp:
+        for idx, audio_file in tqdm(enumerate(audio_files)):
             duration_frames = []
-            speech_timestamps, pauses = silero_vad.get_timestamps(audio_file)
-            for timestamp in speech_timestamps:
+            vad = silero_vad.get_timestamps(audio_file)
+            speech_timestamps.append(vad[0])
+            pauses.append(vad[1])
+            for timestamp in speech_timestamps[idx]:
                 duration_frames.append(int(np.round(timestamp["end"] * SAMPLING_RATE / HOP_LENGTH) - np.round(timestamp["start"] * SAMPLING_RATE / HOP_LENGTH)))
-
-            # Add silence in the beginning (if VAD detected speech after 0.0s in the beginning of the video)
-            if speech_timestamps[0]['start'] > 0.0:
-                pauses_start = speech_timestamps[0]['start']
-            else:
-                pauses_start = 0.0
-            audio = [AudioSegment.silent(duration=pauses_start * 1000)]
 
             # BPE each segment and append segment durations bins
             bins = bin_instance.find_bin(speech_durations=duration_frames)
@@ -210,57 +207,72 @@ if __name__ == '__main__':
             # Remove `<eow>` and `<shift>` tokens
             hyp = " ".join([t for t in hyp.split() if t.split(FACTOR_DELIMITER)[0] not in [EOW, SHIFT]])
             # Split upon `[pause]`
-            hyp_segments = re.split(r"\s*" + re.escape(PAUSE) + r"\|[^\s]+\s*", hyp)
-
-            # Counting pauses for re-insertion
-            num_pauses_hyp = len(hyp_segments) - 1
+            hyp_segments.append(re.split(r"\s*" + re.escape(PAUSE) + r"\|[^\s]+\s*", hyp))
 
             # Process each segment separately. Will later be joined with pauses again
-            for seg_idx, hyp_segment in enumerate(hyp_segments):
+            for seg_idx, hyp_segment in enumerate(hyp_segments[idx]):
                 seg_fs2_id = f"subset{args.subset}-{idx+1}-{seg_idx+1}"
-                with open(os.path.join(output_dir, seg_fs2_id + '.en.fs2_inp'), 'w') as f_fs2_inp:
-                    # Write input in FastSpeech2 format
-                    f_fs2_inp.write(seg_fs2_id + '|LJSpeech|{')
-                    f_fs2_inp.write(' '.join([t.split(FACTOR_DELIMITER)[0] for t in hyp_segment.split()]))
-                    f_fs2_inp.write('}|\n')
+                # Write input in FastSpeech2 format
+                f_fs2_inp.write(seg_fs2_id + '|LJSpeech|{')
+                f_fs2_inp.write(' '.join([t.split(FACTOR_DELIMITER)[0] for t in hyp_segment.split()]))
+                f_fs2_inp.write('}|\n')
                 # Save durations to file for FastSpeech2 to read
                 np.save(os.path.join(durations_dir, "LJSpeech-duration-" + seg_fs2_id + '.npy'),
                         np.array([int(t.split(FACTOR_DELIMITER)[1]) for t in hyp_segment.split()]))
+                continue
 
-                # Run FastSpeech2's synthesize.py
-                # Running one line at a time since the current implementation can't handle batching when durations aren't the same length for each line
-                logging.debug(f"Running FastSpeech2 on {os.path.join(output_dir, seg_fs2_id + '.en.fs2_inp')}")
-                return_code = call(f"`dirname ${{CONDA_PREFIX}}`/fastspeech2/bin/python {os.path.join(args.fastspeech_dir, 'synthesize.py')} --mode batch "
-                                   f"--source {os.path.join(output_dir, seg_fs2_id + '.en.fs2_inp')} --restore_step 900000 "
-                                   f"-p {os.path.join(args.fastspeech_dir, 'config/LJSpeech/preprocess.yaml')} "
-                                   f"-m {os.path.join(args.fastspeech_dir, 'config/LJSpeech/model.yaml')} "
-                                   f"-t {os.path.join(args.fastspeech_dir, 'config/LJSpeech/train.yaml')} >/dev/null",
-                                   shell=True)
-                if return_code != 0:
-                    logging.error("FastSpeech2 did not run correctly.")
-                    exit(1)
+    # FastSpeech2 doesn't work unless you're in the right directory due to relative paths in their configs.
+    os.chdir(args.fastspeech_dir)
+    logging.info("Running FastSpeech2 on phoneme and duration outputs")
+    return_code = call(f"`dirname ${{CONDA_PREFIX}}`/fastspeech2/bin/python {os.path.join(args.fastspeech_dir, 'synthesize.py')} --mode batch "
+                       f"--source {os.path.join(output_dir, 'subset' + args.subset + '.en.fs2_inp')} --restore_step 900000 "
+                       f"-p {os.path.join(args.fastspeech_dir, 'config/LJSpeech/preprocess.yaml')} "
+                       f"-m {os.path.join(args.fastspeech_dir, 'config/LJSpeech/model.yaml')} "
+                       f"-t {os.path.join(args.fastspeech_dir, 'config/LJSpeech/train.yaml')} >/dev/null",
+                       shell=True)
+    if return_code != 0:
+        logging.error("FastSpeech2 did not run correctly.")
+        exit(1)
 
-                # Join audio segments, adding pauses if needed
-                audio.append(AudioSegment.from_file(os.path.join(output_dir, seg_fs2_id + '.wav'), format="wav"))
-                if seg_idx < num_pauses_hyp and seg_idx < len(pauses):
-                    pause_mseconds = pauses[seg_idx] * 1000
-                    audio.append(AudioSegment.silent(duration=pause_mseconds))
+    logging.info("Reconstructing final audio segments")
+    # Re-construct audio from the pieces and add pauses
+    for idx, audio_file in tqdm(enumerate(audio_files)):
+        # Counting pauses for re-insertion
+        num_pauses_hyp = len(hyp_segments[idx]) - 1
 
-            # Concatenate all audio segments together
-            audio_final = sum(audio)
-            audio_path = os.path.join(args.output_video_dir, os.path.basename(audio_file).replace('.wav', '.en.wav'))
-            audio_final.export(audio_path, format="wav")
+        # Add silence in the beginning (if VAD detected speech after 0.0s in the beginning of the video)
+        if speech_timestamps[idx][0]['start'] > 0.0:
+            pauses_start = speech_timestamps[idx][0]['start']
+        else:
+            pauses_start = 0.0
+        audio = [AudioSegment.silent(duration=pauses_start * 1000)]
 
-            # Embed wav onto video
-            video_path = audio_path.replace('.wav', '.mp4')
-            if os.path.exists(audio_file.replace('.wav', '.mp4')):
-                call(f"ffmpeg -i {audio_file.replace('.wav', '.mp4')} -i {audio_path} -map 0:v:0 -map 1:a:0 -c:v copy {video_path} -hide_banner -loglevel error -y", shell=True)
-            elif os.path.exists(audio_file.replace('.wav', '.mov')):
-                call(f"ffmpeg -i {audio_file.replace('.wav', '.mov')} -i {audio_path} -map 0:v:0 -map 1:a:0 -c:v copy {video_path} -hide_banner -loglevel error -y", shell=True)
-            else:
-                logging.error(f"Could not find video at {audio_file.replace('.wav', '.{mp4,mov}')}")
+        for seg_idx, hyp_segment in enumerate(hyp_segments[idx]):
+            # Join audio segments, adding pauses if needed
+            seg_fs2_id = f"subset{args.subset}-{idx+1}-{seg_idx+1}"
+            audio.append(AudioSegment.from_file(os.path.join(output_dir, seg_fs2_id + '.wav'), format="wav"))
+            if seg_idx < num_pauses_hyp and seg_idx < len(pauses[idx]):
+                pause_mseconds = pauses[idx][seg_idx] * 1000
+                audio.append(AudioSegment.silent(duration=pause_mseconds))
 
+        # Concatenate all audio segments together
+        audio_final = sum(audio)
+        audio_path = os.path.join(args.output_video_dir, os.path.basename(audio_file).replace('.wav', '.en.wav'))
+        audio_final.export(audio_path, format="wav")
+
+        # Embed wav onto video
+        video_path = audio_path.replace('.wav', '.mp4')
+        if os.path.exists(audio_file.replace('.wav', '.mp4')):
+            call(f"ffmpeg -i {audio_file.replace('.wav', '.mp4')} -i {audio_path} -map 0:v:0 -map 1:a:0 -c:v copy {video_path} -hide_banner -loglevel error -y", shell=True)
+        elif os.path.exists(audio_file.replace('.wav', '.mov')):
+            call(f"ffmpeg -i {audio_file.replace('.wav', '.mov')} -i {audio_path} -map 0:v:0 -map 1:a:0 -c:v copy {video_path} -hide_banner -loglevel error -y", shell=True)
+        else:
+            logging.error(f"Could not find video at {audio_file.replace('.wav', '.{mp4,mov}')}")
+
+    logging.info("Cleaning up intermediate files")
     # Remove intermediate files
     call(f"rm {output_dir}/*.wav", shell=True)
     call(f"rm {output_dir}/*.png", shell=True)
     call(f"rm {durations_dir}/*", shell=True)
+
+    logging.info(f"Dub generation complete. Output videos can be found in {args.output_video_dir}")
