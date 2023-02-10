@@ -260,7 +260,7 @@ cd third_party/FastSpeech2
 conda create -n fastspeech2 python=3.8
 conda activate fastspeech2
 pip install -r requirements.txt
-pip install gdown subword-nmt==0.3.7
+pip install gdown
 # Download and extract pretrained model
 mkdir -p output/ckpt/LJSpeech output/result/LJSpeech preprocessed_data/LJSpeech/duration
 cd output/ckpt/LJSpeech
