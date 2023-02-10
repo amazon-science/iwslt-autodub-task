@@ -257,7 +257,7 @@ Set up FastSpeech2 (only for the first usage)
 sudo apt-get install ffmpeg
 cd third_party/FastSpeech2
 # Create separate environment for FastSpeech2 dependencies
-conda create -n fastspeech2 python=3.8
+conda create -n fastspeech2 python=3.8 -y
 conda activate fastspeech2
 pip install -r requirements.txt
 pip install gdown
@@ -271,7 +271,7 @@ unzip generator_LJSpeech.pth.tar.zip
 conda deactivate
 ```
 
-Generate dubbed audios for the test set subsets using FastSpeech2. Note: This will take some time to run — it took us ~1 hour per subset with 1 V100 GPU.
+Generate dubbed videos for the test set subsets using FastSpeech2
 ```bash
 cd ~/iwslt-autodub-task  # Or the path to the repo home, if different
 python synthesize_speech.py --subset 1

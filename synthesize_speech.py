@@ -146,7 +146,7 @@ if __name__ == '__main__':
                         default=os.path.join(os.path.expanduser('~'), "iwslt-autodub-task", "durations_freq_all.pkl"),
                         help="Path to durations_freq_all.pkl")
     parser.add_argument("--output-video-dir", type=str,
-                        help="Directory to write final dubbed videos (and audio).")
+                        help="Directory to write final dubbed videos.")
                 
     args = parser.parse_args()
 
