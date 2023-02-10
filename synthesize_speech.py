@@ -270,6 +270,7 @@ if __name__ == '__main__':
     # Remove intermediate files
     check_call(f"rm -f {output_dir}/*.wav", shell=True)
     check_call(f"rm -f {output_dir}/*.png", shell=True)
+    check_call(f"rm -f {args.output_video_dir}/*.wav", shell=True)
     check_call(f"rm -f {durations_dir}/*", shell=True)
 
     logging.info(f"Dub generation complete. Output videos can be found in {args.output_video_dir}")
