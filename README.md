@@ -16,6 +16,15 @@ limitations under the License.
 
 # Introduction
 
+This repo contains both the data and code to train and run **automatic dubbing**: translating the speech in a video into a new language such that the new speech is natural when overlayed on the original video. 
+
+Our system takes in German videos like this, along with their transcripts (e.g. "Sein Hauptgebiet waren es, romantische und gotische Poesie aus dem Englischen ins Japanische zu übersetzen."):
+
+https://user-images.githubusercontent.com/3534106/217985339-fb31a3a5-7845-4d52-b651-0ab93e426c70.mp4
+
+And produce videos like this, dubbed into English:
+
+https://user-images.githubusercontent.com/3534106/217978682-d74d35b8-3a5f-4e46-82c2-94269e56b3b4.mp4
 
 # Setting up the environment 
 
