@@ -3,7 +3,7 @@ import argparse
 import pickle
 import json
 import re
-from subprocess import Popen, PIPE, DEVNULL, call
+from subprocess import Popen, PIPE, DEVNULL, check_call
 import logging
 logging.basicConfig(level=logging.INFO,
                     format='[%(asctime)s][%(levelname)s] %(message)s',
@@ -224,15 +224,12 @@ if __name__ == '__main__':
     # FastSpeech2 doesn't work unless you're in the right directory due to relative paths in their configs.
     os.chdir(args.fastspeech_dir)
     logging.info("Running FastSpeech2 on phoneme and duration outputs")
-    return_code = call(f"`dirname ${{CONDA_PREFIX}}`/fastspeech2/bin/python {os.path.join(args.fastspeech_dir, 'synthesize.py')} --mode batch "
-                       f"--source {os.path.join(output_dir, 'subset' + args.subset + '.en.fs2_inp')} --restore_step 900000 "
-                       f"-p {os.path.join(args.fastspeech_dir, 'config/LJSpeech/preprocess.yaml')} "
-                       f"-m {os.path.join(args.fastspeech_dir, 'config/LJSpeech/model.yaml')} "
-                       f"-t {os.path.join(args.fastspeech_dir, 'config/LJSpeech/train.yaml')} >/dev/null",
-                       shell=True)
-    if return_code != 0:
-        logging.error("FastSpeech2 did not run correctly.")
-        exit(1)
+    check_call(f"`dirname ${{CONDA_PREFIX}}`/fastspeech2/bin/python {os.path.join(args.fastspeech_dir, 'synthesize.py')} --mode batch "
+               f"--source {os.path.join(output_dir, 'subset' + args.subset + '.en.fs2_inp')} --restore_step 900000 "
+               f"-p {os.path.join(args.fastspeech_dir, 'config/LJSpeech/preprocess.yaml')} "
+               f"-m {os.path.join(args.fastspeech_dir, 'config/LJSpeech/model.yaml')} "
+               f"-t {os.path.join(args.fastspeech_dir, 'config/LJSpeech/train.yaml')} >/dev/null",
+               shell=True)
 
     logging.info("Reconstructing final audio segments")
     # Re-construct audio from the pieces and add pauses
@@ -263,16 +260,16 @@ if __name__ == '__main__':
         # Embed wav onto video
         video_path = audio_path.replace('.wav', '.mp4')
         if os.path.exists(audio_file.replace('.wav', '.mp4')):
-            call(f"ffmpeg -i {audio_file.replace('.wav', '.mp4')} -i {audio_path} -map 0:v:0 -map 1:a:0 -c:v copy {video_path} -hide_banner -loglevel error -y", shell=True)
+            check_call(f"ffmpeg -i {audio_file.replace('.wav', '.mp4')} -i {audio_path} -map 0:v:0 -map 1:a:0 -c:v copy {video_path} -hide_banner -loglevel error -y", shell=True)
         elif os.path.exists(audio_file.replace('.wav', '.mov')):
-            call(f"ffmpeg -i {audio_file.replace('.wav', '.mov')} -i {audio_path} -map 0:v:0 -map 1:a:0 -c:v copy {video_path} -hide_banner -loglevel error -y", shell=True)
+            check_call(f"ffmpeg -i {audio_file.replace('.wav', '.mov')} -i {audio_path} -map 0:v:0 -map 1:a:0 -c:v copy {video_path} -hide_banner -loglevel error -y", shell=True)
         else:
             logging.error(f"Could not find video at {audio_file.replace('.wav', '.{mp4,mov}')}")
 
     logging.info("Cleaning up intermediate files")
     # Remove intermediate files
-    call(f"rm {output_dir}/*.wav", shell=True)
-    call(f"rm {output_dir}/*.png", shell=True)
-    call(f"rm {durations_dir}/*", shell=True)
+    check_call(f"rm -f {output_dir}/*.wav", shell=True)
+    check_call(f"rm -f {output_dir}/*.png", shell=True)
+    check_call(f"rm -f {durations_dir}/*", shell=True)
 
     logging.info(f"Dub generation complete. Output videos can be found in {args.output_video_dir}")
