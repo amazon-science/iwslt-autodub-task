@@ -111,10 +111,10 @@ class SockeyeTranslator:
             'text': line,
             'target_prefix': SHIFT,
             'target_prefix_factors': ['0',
-                                    str(sum(segment_durations)),
-                                    str(segment_durations[0]),
-                                    str(len(segment_durations) - 1)
-                                    ],
+                                      str(sum(segment_durations)),
+                                      str(segment_durations[0]),
+                                      str(len(segment_durations) - 1)
+                                     ],
             'target_segment_durations': segment_durations,
             'use_target_prefix_all_chunks': 'false'
         }
@@ -147,7 +147,11 @@ if __name__ == '__main__':
                         help="Path to durations_freq_all.pkl")
     parser.add_argument("--output-video-dir", type=str,
                         help="Directory to write final dubbed videos.")
-                
+    parser.add_argument("--join-mode", type=str, choices=['match_pause', 'match_start'], default='match_start',
+                        help="When joining segments together to create final clip:\n"
+                             "match_pause: Pause lengths match source.\n"
+                             "match_start: Try to match segment start times. May not match exactly if segments are too long.\n")
+
     args = parser.parse_args()
 
     # Default source text is `subsetX.de`
@@ -219,7 +223,6 @@ if __name__ == '__main__':
                 # Save durations to file for FastSpeech2 to read
                 np.save(os.path.join(durations_dir, "LJSpeech-duration-" + seg_fs2_id + '.npy'),
                         np.array([int(t.split(FACTOR_DELIMITER)[1]) for t in hyp_segment.split()]))
-                continue
 
     # FastSpeech2 doesn't work unless you're in the right directory due to relative paths in their configs.
     os.chdir(args.fastspeech_dir)
@@ -250,6 +253,11 @@ if __name__ == '__main__':
             audio.append(AudioSegment.from_file(os.path.join(output_dir, seg_fs2_id + '.wav'), format="wav"))
             if seg_idx < num_pauses_hyp and seg_idx < len(pauses[idx]):
                 pause_mseconds = pauses[idx][seg_idx] * 1000
+                if args.join_mode == 'match_start':
+                    # Adjust the pause by the difference between original and generated audio (without going below zero)
+                    orig_seg_mseconds = (speech_timestamps[idx][seg_idx]['end'] - speech_timestamps[idx][seg_idx]['start']) * 1000
+                    pause_mseconds -= len(audio[-1]) - orig_seg_mseconds
+                    pause_mseconds = max(0, pause_mseconds)
                 audio.append(AudioSegment.silent(duration=pause_mseconds))
 
         # Concatenate all audio segments together
