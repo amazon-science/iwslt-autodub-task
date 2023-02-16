@@ -35,6 +35,7 @@ This has been tested on 1 NVIDIA V100 GPU with [CUDA 11.7](https://developer.nvi
 ```bash
 sudo apt install git-lfs awscli ffmpeg
 git lfs install --skip-repo
+# Clone this repository (~1.1 GB)
 git clone https://github.com/amazon-science/iwslt-autodub-task.git --recursive
 cd iwslt-autodub-task
 
