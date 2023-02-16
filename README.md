@@ -33,7 +33,7 @@ For training models, it is assumed that you have at least 1 GPU, with CUDA drive
 This has been tested on 1 NVIDIA V100 GPU with [CUDA 11.7](https://developer.nvidia.com/cuda-11-7-0-download-archive), on Ubuntu 20.04.
 
 ```bash
-sudo apt install git-lfs awscli ffmpeg
+sudo apt install git-lfs awscli ffmpeg build-essential 
 git lfs install --skip-repo
 # Clone this repository (~1.1 GB)
 git clone https://github.com/amazon-science/iwslt-autodub-task.git --recursive
@@ -47,8 +47,9 @@ conda activate iwslt-autodub
 cd third_party/prism
 conda create -n prism python=3.7 -y
 conda activate prism
-pip install -r requirements.txt
+pip install -r requirements.txt # g++ is needed 
 conda deactivate
+# Downloads Prism model (~1.4 GB)
 wget http://data.statmt.org/prism/m39v1.tar
 tar xf m39v1.tar
 rm m39v1.tar
