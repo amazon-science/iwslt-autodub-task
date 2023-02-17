@@ -262,6 +262,7 @@ cd third_party/FastSpeech2
 conda create -n fastspeech2 python=3.8 -y
 conda activate fastspeech2
 pip install -r requirements.txt
+pip install torchaudio
 pip install gdown
 # Download and extract pretrained model
 mkdir -p output/ckpt/LJSpeech output/result/LJSpeech preprocessed_data/LJSpeech/duration
