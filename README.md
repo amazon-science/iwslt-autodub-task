@@ -33,7 +33,7 @@ For training models, it is assumed that you have at least 1 GPU, with CUDA drive
 This has been tested on 1 NVIDIA V100 GPU with [CUDA 11.7](https://developer.nvidia.com/cuda-11-7-0-download-archive), on Ubuntu 20.04.
 
 ```bash
-sudo apt install git-lfs awscli ffmpeg build-essential 
+sudo apt install git-lfs awscli ffmpeg build-essential jq
 git lfs install --skip-repo
 # Clone this repository (~1.1 GB)
 git clone https://github.com/amazon-science/iwslt-autodub-task.git --recursive
