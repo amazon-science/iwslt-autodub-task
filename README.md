@@ -282,9 +282,9 @@ python synthesize_speech.py --subset 2
 ```
 Corresponding to each file `*.X.mov` or `*.X.mp4` in `data/test/subset{1,2}`, a dubbed video `data/test/subset{1,2}/dubbed/*.X.mp4` will be created.  
 
-License for Data
---------
+LICENSE
+-------
 
-New Dubbing data set is available under CC-BY-4.0 license.
+Scripts are provided under Apache 2.0 License. Full text provided in root directory.
 
-https://creativecommons.org/licenses/by/4.0/ 
+New Dubbing data set is available under CC-BY-4.0 license. Full text provided under data/ directory.
