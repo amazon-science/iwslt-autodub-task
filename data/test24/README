@@ -1,0 +1,13 @@
+README
+
+
+
+Commands to create clips
+
+```
+ffmpeg -ss 00:03:00 -to 00:14:40 -i test24/itv/test24/video/15.mp4 -c:v copy -c:a copy 15_clipped.mp4
+ffmpeg -ss 00:09:36 -to 00:18:09 -i test24/itv/test24/video/16.mp4 -c:v copy -c:a copy 16_clipped.mp4
+ffmpeg -ss 00:09:45 -to 00:19:45 -i test24/itv/test24/video/18.mp4 -c:v copy -c:a copy 18_clipped.mp4
+ffmpeg -ss 00:20:41 -to 00:30:50 -i test24/itv/test24/video/19.mp4 -c:v copy -c:a copy 19_clipped.mp4
+ffmpeg -ss 00:11:50 -to 00:22:10 -i test24/itv/test24/video/21.mp4 -c:v copy -c:a copy 21_clipped.mp4
+```
